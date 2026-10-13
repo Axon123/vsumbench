@@ -169,9 +169,9 @@ def test_selection_matches_reference(dataset: str, method: str, selector_name: s
                 Budget(0.15),
                 aggregation="mean",
             )
-            assert np.array_equal(
-                ours.frames, reference.astype(bool)
-            ), f"{dataset}/{key}: selection differs from reference ({method})"
+            assert np.array_equal(ours.frames, reference.astype(bool)), (
+                f"{dataset}/{key}: selection differs from reference ({method})"
+            )
 
 
 def test_f1_matches_reference(dataset: str) -> None:

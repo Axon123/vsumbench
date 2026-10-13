@@ -53,8 +53,7 @@ def expand_step_scores(
     scores = np.asarray(step_scores)
     if scores.ndim != 1 or not np.issubdtype(scores.dtype, np.floating):
         raise ValueError(
-            f"step_scores must be a 1-D float array, got shape {scores.shape} "
-            f"dtype {scores.dtype}"
+            f"step_scores must be a 1-D float array, got shape {scores.shape} dtype {scores.dtype}"
         )
     idx = np.asarray(picks)
     if idx.ndim != 1 or not np.issubdtype(idx.dtype, np.integer):

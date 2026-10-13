@@ -342,8 +342,7 @@ class Budget:
             raise ValueError(f"Budget.fraction must be in (0, 1], got {self.fraction!r}")
         if self.rounding not in ("floor", "round", "ceil"):
             raise ValueError(
-                f"Budget.rounding must be one of ('floor', 'round', 'ceil'), "
-                f"got {self.rounding!r}"
+                f"Budget.rounding must be one of ('floor', 'round', 'ceil'), got {self.rounding!r}"
             )
         object.__setattr__(self, "fraction", float(self.fraction))
 
