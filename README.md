@@ -38,7 +38,7 @@ bench.compare(["uniform", "vasnet", "pglsum", "mine"])
 | Datasets | TVSum, SumMe, TVSum+SumMe | OVP, VTW, QFVS |
 | Metrics | F1@{10,15,30,50}% (shot-based / knapsack selection), Kendall's τ | Spearman's ρ, extended protocols |
 | Baselines | uniform, bi-LSTM, VASNet, PGLSUM | SUM-GAN family, DR-DSN, CSNet |
-| Splits | TVSum canonical 5-fold | community splits, seed-controlled random splits |
+| Splits | TVSum & SumMe canonical 5-fold, seed-controlled random splits | community splits |
 
 ## Status
 
