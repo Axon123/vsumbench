@@ -1,1 +1,1 @@
-"""Metrics: F1@budget (summary) and Kendall's tau (rank) (M2)."""
+"""Metrics: F1@budget (summary metrics) and Kendall's tau-b (rank metrics)."""

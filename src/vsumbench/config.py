@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Literal, TypeAlias, cast
 
 __all__ = [
+    "BudgetRounding",
     "CanonicalSplits",
     "Device",
     "EvalConfig",
@@ -29,6 +30,7 @@ __all__ = [
     "ScoreNormalization",
     "SegmentAggregation",
     "SplitSpec",
+    "StepExpansion",
     "TrainingConfig",
 ]
 
@@ -37,6 +39,15 @@ SegmentAggregation = Literal["mean", "max"]
 
 #: How per-user metric values are collapsed into the reported number.
 GTAggregation = Literal["max", "mean"]
+
+#: How a budget fraction maps to the allowed number of selected frames.
+#: "floor" is the eccv16-lineage rule (``int(n_frames * fraction)``).
+BudgetRounding = Literal["floor", "round", "ceil"]
+
+#: How per-step model scores expand to the original frame space.
+#: "forward_fill" holds each step score until the next pick (the
+#: eccv16-lineage rule; the tail after the last pick keeps the last score).
+StepExpansion = Literal["forward_fill", "zero_fill"]
 
 NormalizationMethod = Literal["none", "min_max", "z_score"]
 
@@ -47,6 +58,8 @@ JsonValue: TypeAlias = bool | int | float | str | list["JsonValue"] | dict[str, 
 
 _SEGMENT_AGGREGATIONS: tuple[str, ...] = ("mean", "max")
 _GT_AGGREGATIONS: tuple[str, ...] = ("max", "mean")
+_BUDGET_ROUNDINGS: tuple[str, ...] = ("floor", "round", "ceil")
+_STEP_EXPANSIONS: tuple[str, ...] = ("forward_fill", "zero_fill")
 _NORMALIZATION_METHODS: tuple[str, ...] = ("none", "min_max", "z_score")
 _DEVICES: tuple[str, ...] = ("cpu", "cuda", "mps")
 
@@ -166,6 +179,14 @@ class EvalConfig:
     seed: int = 0
     gt_aggregation: GTAggregation = "max"
     segment_score_aggregation: SegmentAggregation = "mean"
+    #: Rounding rule turning a budget fraction into the allowed frame count
+    #: (see docs/protocols/eccv16-summary-protocol.md: every lineage repo
+    #: floors, i.e. ``int(n_frames * fraction)``).
+    budget_rounding: BudgetRounding = "floor"
+    #: How step-space model scores expand to the frame space of ``Scores``
+    #: (docs/protocols/eccv16-summary-protocol.md; lineage default keeps each
+    #: score until the next pick, tail included).
+    step_score_expansion: StepExpansion = "forward_fill"
     score_normalization: ScoreNormalization = field(default_factory=ScoreNormalization)
     training: TrainingConfig = field(default_factory=TrainingConfig)
 
@@ -201,6 +222,16 @@ class EvalConfig:
             raise ValueError(
                 f"EvalConfig.segment_score_aggregation must be one of {_SEGMENT_AGGREGATIONS}, "
                 f"got {self.segment_score_aggregation!r}"
+            )
+        if self.budget_rounding not in _BUDGET_ROUNDINGS:
+            raise ValueError(
+                f"EvalConfig.budget_rounding must be one of {_BUDGET_ROUNDINGS}, "
+                f"got {self.budget_rounding!r}"
+            )
+        if self.step_score_expansion not in _STEP_EXPANSIONS:
+            raise ValueError(
+                f"EvalConfig.step_score_expansion must be one of {_STEP_EXPANSIONS}, "
+                f"got {self.step_score_expansion!r}"
             )
         if not isinstance(self.score_normalization, ScoreNormalization):
             raise TypeError("EvalConfig.score_normalization must be a ScoreNormalization")
@@ -242,6 +273,10 @@ class EvalConfig:
                 kwargs["gt_aggregation"] = _get_str(data, "gt_aggregation")
             if "segment_score_aggregation" in data:
                 kwargs["segment_score_aggregation"] = _get_str(data, "segment_score_aggregation")
+            if "budget_rounding" in data:
+                kwargs["budget_rounding"] = _get_str(data, "budget_rounding")
+            if "step_score_expansion" in data:
+                kwargs["step_score_expansion"] = _get_str(data, "step_score_expansion")
             if "score_normalization" in data:
                 kwargs["score_normalization"] = _decode_normalization(data["score_normalization"])
             if "training" in data:
@@ -274,6 +309,8 @@ _EVAL_CONFIG_KEYS = frozenset(
         "seed",
         "gt_aggregation",
         "segment_score_aggregation",
+        "budget_rounding",
+        "step_score_expansion",
         "score_normalization",
         "training",
     }

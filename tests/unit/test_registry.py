@@ -174,10 +174,10 @@ class TestModuleRegistries:
             assert isinstance(fake, protocol)
 
     def test_builtin_registries_content_matches_milestones(self) -> None:
-        # M1 ships the two dataset adapters; other groups stay vacant until
-        # M2 (selectors/metrics) and M3 (models).
+        # M1 ships the dataset adapters; M2 adds selectors and metrics;
+        # models land with M3.
         assert DATASETS.names() == ("summe", "tvsum")
         assert MODELS.names() == ()
-        assert SELECTORS.names() == ()
-        assert SUMMARY_METRICS.names() == ()
-        assert RANK_METRICS.names() == ()
+        assert SELECTORS.names() == ("greedy", "knapsack")
+        assert SUMMARY_METRICS.names() == ("f1",)
+        assert RANK_METRICS.names() == ("kendall_tau",)

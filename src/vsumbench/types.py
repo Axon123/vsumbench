@@ -25,6 +25,7 @@ Conventions
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,7 +33,7 @@ from typing import Protocol, runtime_checkable
 
 import numpy as np
 
-from vsumbench.config import EvalConfig, SegmentAggregation
+from vsumbench.config import BudgetRounding, EvalConfig, SegmentAggregation
 
 __all__ = [
     "Budget",
@@ -324,19 +325,43 @@ class Mask:
 class Budget:
     """Summary budget as a fraction of total frames, e.g. ``0.15`` for F1@15%.
 
-    How a fraction maps to an allowed frame count (rounding rule) is a
-    protocol choice pinned per source repository in M2 archaeology; the
-    recommended default will then be documented in core-contracts.md.
+    ``rounding`` is the protocol rule that maps the fraction to the allowed
+    number of selected frames (AGENTS.md rule 4). Every eccv16-lineage
+    repository floors — ``int(n_frames * fraction)`` — so that is the
+    default; see docs/protocols/eccv16-summary-protocol.md. ``round`` uses
+    Python's round-half-to-even.
     """
 
     fraction: float
+    rounding: BudgetRounding = "floor"
 
     def __post_init__(self) -> None:
         if isinstance(self.fraction, bool) or not isinstance(self.fraction, (int, float)):
             raise TypeError(f"Budget.fraction must be a number, got {self.fraction!r}")
         if not 0.0 < float(self.fraction) <= 1.0:
             raise ValueError(f"Budget.fraction must be in (0, 1], got {self.fraction!r}")
+        if self.rounding not in ("floor", "round", "ceil"):
+            raise ValueError(
+                f"Budget.rounding must be one of ('floor', 'round', 'ceil'), "
+                f"got {self.rounding!r}"
+            )
         object.__setattr__(self, "fraction", float(self.fraction))
+
+    def frame_limit(self, n_frames: int) -> int:
+        """Allowed number of selected frames for a video of ``n_frames`` frames.
+
+        Computed exactly like the lineage code (``n_frames * fraction`` first,
+        then rounded), so float quirks of the reference are reproduced; the
+        result is clamped at 0.
+        """
+        raw = n_frames * self.fraction
+        if self.rounding == "floor":
+            limit = math.floor(raw)
+        elif self.rounding == "ceil":
+            limit = math.ceil(raw)
+        else:
+            limit = round(raw)
+        return max(int(limit), 0)
 
 
 @dataclass(frozen=True)

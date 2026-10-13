@@ -1,6 +1,6 @@
 # 核心接口契约（core contracts）
 
-- **状态**：v1.1（M1，2026-10-13）；v1 定稿于 M0。v1.1 变更：`Video` 增加双帧空间语义与 `picks` 字段（§2.2，M1 考古结论），其余不变
+- **状态**：v1.2（M2，2026-10-13）。v1.1：`Video` 增加双帧空间语义与 `picks` 字段（§2.2）；v1.2：`Budget` 增加 `rounding` 字段（§2.4）、`EvalConfig` 增加 `budget_rounding` / `step_score_expansion`（§4），§8 的 M2 留白项全部定稿并修正一处 M1 错误记述（展开尾部语义）
 - **受众**：任何要给 vsumbench 添加数据集 / 模型 / 指标 / selector 的人（包括未来的我们自己）
 - **维护规则**：改任何接口或 `EvalConfig` 字段语义前必读并更新本文档。契约由 `src/vsumbench/types.py`、`config.py`、`registry.py` 承载：本文档写动机与决策记录，代码是可执行的事实，两者不一致时立即修文档。
 - **兼容性政策**：新增字段 / 新组件 = minor；改字段默认值或语义、删字段 = major，需迁移说明 + `tests/alignment/` 全绿。
@@ -57,6 +57,8 @@ config                            # 叶子：不 import 任何 vsumbench 模块
 
 **决策记录：为什么是双帧空间（v1.1）。** eccv16 TVSum/SumMe 的 h5 把特征按每 15 原始帧 1 步子采样（`features`/`gtscore` 在步空间，`user_summary`/`change_points`/`n_frames` 在原始帧空间，`picks` 是映射——M1 已逐视频验证，两数据集 75 个视频全部严格成立）。单一 `n_frames` 不变量在真实数据上不成立；让 loader 私自把某个空间重采样到另一个空间是影响数值的协议选择（规则 4），因此 `Video` 忠实携带两个空间 + `picks`，步 ↔ 帧的展开方式（展开值、尾部填充）推迟到 M2 考古后进 `EvalConfig`（§8）。`n_steps` 属性 = `len(picks)`（无 `picks` 时回落 `n_frames`）。另：两个 canonical h5 **均无**逐人重要性分（`gtscore` 是跨人聚合的派生量，被 loader 忽略），故 TVSum/SumMe 的 `user_scores` 为空；逐人分数需另接原始 ydata 标注（v0.1 后）。
 
+**M2 定稿（展开协议，v1.2）**：`Scores` 的规范空间是原始帧空间；步分 → 帧分由模型侧唯一的共享实现 `vsumbench.models.score_space.expand_step_scores` 完成，协议参数是 `EvalConfig.step_score_expansion`。eccv16 谱系实测为**前向填充、尾部延续**（尾区间 `[picks[-1], n_frames)` 取最后一个分数；M1 文档中"尾部补 0"的记述有误，参考代码的补零分支是长度错配防御的死代码——见 docs/protocols/eccv16-summary-protocol.md §1）。
+
 **GT 原始性原则**：loader 只做格式搬运，不做任何协议加工——不归一化、不聚合、不把 gtscore 转成摘要。`Video` 里存的是原始逐人标注；每个「多标注怎么合成一个数」的选择都归 `EvalConfig`（规则 4）。
 
 ### 2.3 Scores —— 模型输出（**帧级**）
@@ -70,7 +72,7 @@ Scores(video_id: str, values: float[n_frames])
 ### 2.4 Mask / Budget / Split
 
 - `Mask(video_id, frames: bool[n_frames])` —— 机器摘要的帧级表示，selector 的输出、summary metric 的输入。
-- `Budget(fraction: float)`，`0 < fraction ≤ 1` —— 预算占总帧数比例（0.15 = F1@15%）。**帧数取整规则（round/floor/ceil）刻意留到 M2 考古后定稿**，不提前猜。
+- `Budget(fraction: float, rounding: "floor"|"round"|"ceil" = "floor")`，`0 < fraction ≤ 1` —— 预算占总帧数比例（0.15 = F1@15%）；`frame_limit(n_frames)` 按 `n_frames * fraction` 先乘后取整（M2 定稿：eccv16 谱系全部用 `int()` 即 floor，见 docs/protocols/eccv16-summary-protocol.md §1；`round` 为 Python 的 half-to-even）。
 - `Split(train: tuple[str,...], test: tuple[str,...])` —— video id 级切分；两侧非空、无重复、无交集。
 
 ## 3. 四个扩展协议（Protocol，结构化类型）
@@ -149,9 +151,11 @@ class DatasetAdapter(Protocol):
 | `budgets` | `tuple[float, ...]` | 预算比例列表，如 `(0.1,0.15,0.3,0.5)` 对应 F1@{10,15,30,50}% |
 | `splits` | `CanonicalSplits \| RandomSplits` | 切分协议（见下） |
 | `seed` | `int = 0` | 全局唯一随机性来源 |
-| `gt_aggregation` | `"max" \| "mean"` = `"max"` | 跨标注聚合。TVSum 系论文惯用 max（对最好的标注对齐） |
-| `segment_score_aggregation` | `"mean" \| "max"` = `"mean"` | 帧分 → 段分聚合（§2.3 决策） |
-| `score_normalization` | `{method: none/min_max/z_score}` = `none` | 打分归一化；各源仓库差异大，M2 考古后给推荐默认 |
+| `gt_aggregation` | `"max" \| "mean"` = `"max"` | 跨标注聚合。推荐默认 = eccv16 原论文口径（两数据集均 max）；注意 KaiyangZhou/e-apostolidis 谱系代码对 TVSum 用 avg（`'avg' if tvsum else 'max'` 硬编码），复现那些论文表值时需切 `mean` |
+| `segment_score_aggregation` | `"mean" \| "max"` = `"mean"` | 帧分 → 段分聚合（§2.3 决策）。谱系全部用 mean（max 为本工具包的显式泛化） |
+| `budget_rounding` | `"floor" \| "round" \| "ceil"` = `"floor"` | 预算 → 帧数取整（M2 考古：全部谱系仓库 floor，`int(n_frames * proportion)`） |
+| `step_score_expansion` | `"forward_fill" \| "zero_fill"` = `"forward_fill"` | 步分 → 帧分展开（M2 考古：谱系为前向填充、尾部延续，见 §2.2 M2 定稿与 protocols/eccv16-summary-protocol.md §1） |
+| `score_normalization` | `{method: none/min_max/z_score}` = `none` | 打分归一化。M2 考古定稿作用位置：谱系在**选择前不归一化**预测分；min_max 只作为**训练目标**归一化存在（VASNet），由 M3 模型按 config 消费，不作用于评测路径 |
 | `training` | `TrainingConfig` | epochs / lr / batch / device + `extra`（模型专属 JSON 参数，同样进 manifest，无处可藏） |
 
 切分配置是带 `kind` 标签的 tagged union：
@@ -196,16 +200,17 @@ class DatasetAdapter(Protocol):
 2. **metrics 拆成两组** `SummaryMetric` / `RankMetric`（entry-point 组 `vsumbench.metrics` / `vsumbench.rank_metrics`，dev-plan 只列了单一 `.metrics` 组）。理由：F1 与 Kendall τ 输入类型不同（Mask vs Scores），分组让注册与分发都类型安全。
 3. **新增 `vsumbench.selectors` 注册组**。理由：selector 与数据集/模型/指标同等可扩展，机制统一。
 
-## 8. 待 M2 协议考古定稿（现在刻意留白）
+## 8. M2 协议考古定稿记录（原留白清单）
 
-以下是已知会影响数值、但**尚无依据钉死**的选择。每条定稿流程：进 `EvalConfig` 字段（或确认现有字段语义）→ `docs/protocols/*.md` 记录出处 → 补手算用例 / 对齐测试。
+M2 对六个源仓库（VASNet fork、PGL-SUM、CA-SUM、SUM-GAN-AAE/sl、DR-DSN/pytorch-vsumm-reinforce、原版 SUM-GAN TF）完成逐文件考古，逐条结论与代码引文见 **docs/protocols/eccv16-summary-protocol.md**（主文档）与 **docs/protocols/tvsum-summe-originals.md**（原始论文 vs eccv16 打包）。定稿结果：
 
-- TVSum `gtscore` → 用户摘要的构造方式（段聚合、预算、knapsack vs top-k）；
-- budget 的帧数取整规则（round / floor / ceil；已知 PGL-SUM 谱系对原始帧数用 `int(x * 0.15)` 即 floor）；
-- gtscore 训练目标的归一化（VASNet 的 per-video min_max）与 `score_normalization` 的确切作用位置（训练目标 vs 选择前）；
-- 特征帧率与 `n_frames` 的对齐（部分源仓库有 subsample）——**M1 已钉死事实**：eccv16 h5 双粒度 + `picks = range(0, n_frames, 15)`（见 §2.2 决策记录）；**待定**：步分 → 原始帧分的展开协议（`Scores` 的规范空间、展开值、`picks[-1]` 之后的尾部填充——PGL-SUM `generate_summary.py` 用前向填充、尾部补 0，需考古各仓库是否一致后进 `EvalConfig`）；
-- SumMe fps 缺省的处理（h5 无 fps；`v_length` 存在但 fps 属推断，暂不猜）；
-- F1@K 的多预算语义（GT 摘要固定 15% 还是随 K 同步）。
+- **GT 摘要构造**：GT 是人工标注原样数据，评测只构造机器摘要；`gtscore → 摘要` 的转换（knapsack over shots + floor 预算）是**机器侧**选择路径，由 selector 承担，GT 侧无对应参数。
+- **budget 取整**：`budget_rounding = "floor"`（§4），`Budget.frame_limit` 复刻 `int(n_frames * proportion)` 浮点行为。
+- **归一化作用位置**：`score_normalization` 定位为模型侧训练目标归一化（VASNet per-video min_max），评测/选择路径不归一化（§4）。
+- **步分 → 帧分展开**：`step_score_expansion = "forward_fill"`，尾部延续最后一步分数（修正 M1 的"尾部补 0"误记，§2.2）；共享实现 `models/score_space.py`。
+- **SumMe fps**：维持不猜（h5 无 fps，秒类协议等上游提供）。
+- **F1@K 语义**：预算只作用于机器摘要；GT 不变。谱系仓库全部只评 15%，`budgets` 元组为工具包泛化。
+- 另记录两处谱系协议事实，供 M4 编排定稿：跨标注聚合 `'avg' if tvsum else 'max'`（与 eccv16 原论文的 max 口径不一致，是跨论文数字差异主因）；最优 epoch 按**测试集** F1 挑选（测试集窥视，编排层须显式暴露）。
 
 ## 9. 组件测试准入（合并门槛）
 

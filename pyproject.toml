@@ -45,10 +45,20 @@ vsumm = "vsumbench.cli:main"
 # that third-party packages use (see docs/design/core-contracts.md §5):
 #   vsumbench.datasets / vsumbench.models / vsumbench.selectors
 #   vsumbench.metrics (summary metrics) / vsumbench.rank_metrics (rank metrics)
-# Models (M3), selectors and metrics (M2) land here later.
+# Models (M3) land here later.
 [project.entry-points."vsumbench.datasets"]
 tvsum = "vsumbench.data.tvsum:TVSUM_ADAPTER"
 summe = "vsumbench.data.summe:SUMME_ADAPTER"
+
+[project.entry-points."vsumbench.selectors"]
+greedy = "vsumbench.selection.shot_based:GREEDY_SELECTOR"
+knapsack = "vsumbench.selection.knapsack:KNAPSACK_SELECTOR"
+
+[project.entry-points."vsumbench.metrics"]
+f1 = "vsumbench.metrics.f1:F1_METRIC"
+
+[project.entry-points."vsumbench.rank_metrics"]
+kendall_tau = "vsumbench.metrics.rank:KENDALL_TAU_METRIC"
 
 [tool.setuptools.dynamic]
 version = { attr = "vsumbench.__version__" }

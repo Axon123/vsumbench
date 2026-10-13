@@ -1,1 +1,1 @@
-"""Selection strategies: shot-based greedy and knapsack (M2)."""
+"""Selection strategies: greedy shot-based and knapsack."""

@@ -39,6 +39,8 @@ def make_full_config() -> EvalConfig:
         seed=123,
         gt_aggregation="mean",
         segment_score_aggregation="max",
+        budget_rounding="ceil",
+        step_score_expansion="zero_fill",
         score_normalization=ScoreNormalization(method="min_max"),
         training=TrainingConfig(
             epochs=10,
@@ -76,6 +78,14 @@ class TestValidation:
         with pytest.raises(ValueError, match="segment_score_aggregation"):
             dataclasses.replace(make_config(), segment_score_aggregation="sum")  # type: ignore[arg-type]
 
+    def test_rejects_bad_budget_rounding(self) -> None:
+        with pytest.raises(ValueError, match="budget_rounding"):
+            dataclasses.replace(make_config(), budget_rounding="nearest")  # type: ignore[arg-type]
+
+    def test_rejects_bad_step_expansion(self) -> None:
+        with pytest.raises(ValueError, match="step_score_expansion"):
+            dataclasses.replace(make_config(), step_score_expansion="nearest_fill")  # type: ignore[arg-type]
+
     def test_rejects_bad_split_type(self) -> None:
         with pytest.raises(TypeError, match="splits"):
             dataclasses.replace(make_config(), splits="canonical")  # type: ignore[arg-type]
@@ -109,6 +119,8 @@ class TestDefaults:
         assert config.seed == 0
         assert config.gt_aggregation == "max"
         assert config.segment_score_aggregation == "mean"
+        assert config.budget_rounding == "floor"
+        assert config.step_score_expansion == "forward_fill"
         assert config.score_normalization.method == "none"
         assert config.training.epochs == 100
         assert config.training.device == "cpu"
@@ -170,6 +182,8 @@ class TestFromDict:
             "seed",
             "gt_aggregation",
             "segment_score_aggregation",
+            "budget_rounding",
+            "step_score_expansion",
             "score_normalization",
             "training",
         ):
@@ -178,6 +192,8 @@ class TestFromDict:
         assert config.seed == 0
         assert config.gt_aggregation == "max"
         assert config.segment_score_aggregation == "mean"
+        assert config.budget_rounding == "floor"
+        assert config.step_score_expansion == "forward_fill"
         assert config.score_normalization.method == "none"
         assert config.training.epochs == 100
 
