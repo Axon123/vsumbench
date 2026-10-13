@@ -16,9 +16,11 @@ venv/
 .mypy_cache/
 .coverage
 
-# Data & experiments (never commit datasets or runs)
-data/
-runs/
+# Data & experiments (never commit datasets or runs).
+# Anchored to the repo root: an unanchored "data/" would also swallow
+# src/vsumbench/data/ (the dataset-loader package).
+/data/
+/runs/
 *.h5
 
 # OS / editor
