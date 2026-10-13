@@ -44,7 +44,7 @@ Comparison numbers for other methods go into your table straight from their pape
 
 ## Status
 
-🚧 **Early development.** The protocol archaeology (documenting every implicit evaluation choice in existing repositories) is done for the TVSum/SumMe lineage — findings live in [docs/protocols](docs/protocols/).
+🚧 **Early development.** The data layer (`vsumm download`), the protocol layer (selectors, F1/Kendall τ, alignment tests) and the orchestrator (`vsumm eval` / `vsumm report`, run manifests, the `Bench` API) are implemented — see [docs/design/dev-plan.md](docs/design/dev-plan.md) for progress. The protocol archaeology for the TVSum/SumMe lineage lives in [docs/protocols](docs/protocols/). Remaining for v0.1: docs site, CONTRIBUTING, PyPI release.
 
 ## Contributing
 

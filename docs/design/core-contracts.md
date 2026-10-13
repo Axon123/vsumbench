@@ -1,6 +1,6 @@
 # 核心接口契约（core contracts）
 
-- **状态**：v1.2（M2，2026-10-13）。v1.1：`Video` 增加双帧空间语义与 `picks` 字段（§2.2）；v1.2：`Budget` 增加 `rounding` 字段（§2.4）、`EvalConfig` 增加 `budget_rounding` / `step_score_expansion`（§4），§8 的 M2 留白项全部定稿并修正一处 M1 错误记述（展开尾部语义）
+- **状态**：v1.3（M3，2026-10-13）。v1.1：`Video` 增加双帧空间语义与 `picks` 字段（§2.2）；v1.2：`Budget` 增加 `rounding` 字段（§2.4）、`EvalConfig` 增加 `budget_rounding` / `step_score_expansion`（§4），§8 的 M2 留白项全部定稿并修正一处 M1 错误记述（展开尾部语义）；v1.3：新增 §10 编排层（Bench / RunResult / run manifest 结构，M3 落地）
 - **受众**：任何要给 vsumbench 添加数据集 / 模型 / 指标 / selector 的人（包括未来的我们自己）
 - **维护规则**：改任何接口或 `EvalConfig` 字段语义前必读并更新本文档。契约由 `src/vsumbench/types.py`、`config.py`、`registry.py` 承载：本文档写动机与决策记录，代码是可执行的事实，两者不一致时立即修文档。
 - **兼容性政策**：新增字段 / 新组件 = minor；改字段默认值或语义、删字段 = major，需迁移说明 + `tests/alignment/` 全绿。
@@ -91,7 +91,7 @@ class Model(Protocol):
 
 - `fit` 收到训练 split 与完整协议配置（超参在 `config.training`，种子在 `config.seed`）；无学习基线可以是 no-op。
 - `predict` 返回**帧级** `Scores`，长度必须等于 `video.n_frames`（消费者可复验）。段内打分的模型自己负责把段分数铺回帧。
-- 生命周期：registry 里放的是**实例**；有状态模型在 `fit` 后持有参数。编排层（M4）在每次 run 前 deepcopy 实例，避免跨 run 状态泄漏。
+- 生命周期：registry 里放的是**实例**；有状态模型在 `fit` 后持有参数。编排层（M3 Bench）在**每折** fit 前 deepcopy 实例，跨折与跨 run 均无状态泄漏。
 
 ### 3.2 Selector
 
@@ -192,7 +192,7 @@ class DatasetAdapter(Protocol):
 ## 6. 随机性与可复现
 
 - 唯一种子来源：`EvalConfig.seed`（切分如需独立复用，用 `RandomSplits.seed` 覆盖）。模型训练、任何抽样都从这里派生；组件**不得**自带熵源（`random.random()`、未播种的 numpy/torch 全局态都算违规）。
-- 评测结果必须能落到 run manifest：git SHA + 完整 `EvalConfig` + 数据 checksum（manifest 结构 M4 定稿）。
+- 评测结果必须能落到 run manifest：git SHA + 完整 `EvalConfig` + 数据 checksum。manifest 已随 M3 落地（`vsumbench.reporting.manifest`，schema `vsumbench.run-manifest/1`），结构见 §10。
 
 ## 7. 与 dev-plan 签名的已批准偏差
 
@@ -218,3 +218,20 @@ M2 对六个源仓库（VASNet fork、PGL-SUM、CA-SUM、SUM-GAN-AAE/sl、DR-DSN
 - **模型**：vsumbench 不内置学习模型（定位调整，见 dev-plan）；内置的 `uniform` 参照只需单测。第三方移植已发表模型时**建议**附对齐测试（参考 `tests/alignment/` 的逐字转录法），已知偏差先记录 `docs/protocols/`。
 - **指标**：手算用例（必须有，小数组人工算期望值）。
 - **selector**：边界条件（budget 全选 / 极小、单段视频、并列分数、恰好整除）。
+
+## 10. 编排层（M3：Bench / RunResult / run manifest）
+
+### 10.1 Bench
+
+两种构造形态：`Bench(config)` 显式全量协议；`Bench(dataset=..., splits=..., ...)` 便捷 kwargs——未给字段取**推荐协议默认**：`model="uniform"`（仅冒烟参照）、`selector="knapsack"`、`metrics=("f1",)`、`budgets=(0.1,0.15,0.3,0.5)`，其余协议字段回落 `EvalConfig` 字段默认（§4）；`splits` 字符串 = canonical 名，缺省 = `RandomSplits()`。`data_root` 是运行时参数（数据在哪），不是协议参数（怎么评），可与任一形态并用。`Bench.register(name, model)` 注册进 MODELS **并**将该模型选为运行对象（README 示例的形状）。
+
+run 循环（对数值零自由裁量，只做组装）：adapter 加载 → 全部 registry 名解析（错误尽早暴露）→ 切分 → 每折：deepcopy 模型 → `fit(train)` → 逐 test 视频 `predict`（校验 video_id 与长度）→ 逐预算 `select` → 逐人指标值 → 按 `gt_aggregation` 收缩。
+
+### 10.2 结果块与 run manifest
+
+- **逐视频记录挂在折内**（`results.per_fold[i].videos[vid][metric][budget_key]`）：canonical 折的 test 集**互相重叠**（逐字转录事实：tvsum 50 槽 34 个不同视频、summe 25 槽 18 个），学习模型对同一视频在不同折可给出不同分数，扁平 per-video 映射会覆盖丢值。
+- summary 指标以预算比例字符串为键（`"0.15"`）；rank 指标预算无关，键为 `"none"`（`NO_BUDGET`）。
+- 跨折 summary：折均值的 mean / std（样本标准差 ddof=1，单折记 null）/ max / n_folds——max 与 std 一并记录，供不同论文口径（「最优折」vs「均值±方差」）直接引用，不改协议。
+- NaN 逐人值（如退化标注下的 Kendall τ）**传播**到聚合并在 manifest 中写为 `null`（严格 JSON，拒绝 `NaN` 字面量）。
+- manifest = `schema`（`vsumbench.run-manifest/1`）+ `created_utc` + `code`（版本、git SHA、git dirty、python/platform/numpy）+ `data`（root、逐文件 sha256 与 spec 比对；SOURCES 未收录的数据集显式记 `files: null`，不假装验证过）+ `config`（`EvalConfig.to_dict()` 原样）+ `splits`（逐折 train/test 明细）+ `results`。数据集在 SOURCES 收录而 checksum 不匹配时 run 直接失败，不产出数字。
+- run 目录 `<UTC 时间戳>-<dataset>-<model>-<selector>`，同秒重跑加序号，永不覆盖（可 diff）。

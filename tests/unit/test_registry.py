@@ -174,10 +174,12 @@ class TestModuleRegistries:
             assert isinstance(fake, protocol)
 
     def test_builtin_registries_content_matches_milestones(self) -> None:
-        # M1 ships the dataset adapters; M2 adds selectors and metrics;
-        # the uniform reference model lands with the orchestration milestone.
-        assert DATASETS.names() == ("summe", "tvsum")
-        assert MODELS.names() == ()
-        assert SELECTORS.names() == ("greedy", "knapsack")
-        assert SUMMARY_METRICS.names() == ("f1",)
-        assert RANK_METRICS.names() == ("kendall_tau",)
+        # M1 ships the dataset adapters; M2 adds selectors and metrics; M3
+        # (orchestration) adds the uniform reference model. Subset, not
+        # equality: other test modules register in-process components in the
+        # same global registries before this one runs.
+        assert {"summe", "tvsum"} <= set(DATASETS.names())
+        assert "uniform" in MODELS.names()
+        assert {"greedy", "knapsack"} <= set(SELECTORS.names())
+        assert "f1" in SUMMARY_METRICS.names()
+        assert "kendall_tau" in RANK_METRICS.names()

@@ -14,6 +14,9 @@ import sys
 import pytest
 
 ALLOWED_IMPORTS: dict[str, set[str]] = {
+    # The package root re-exports Bench lazily (PEP 562), so importing it -
+    # or any submodule - stays light; only vsumbench.cli and vsumbench.bench
+    # legitimately pull the full orchestration chain.
     "vsumbench": {"vsumbench"},
     "vsumbench.config": {"vsumbench", "vsumbench.config"},
     "vsumbench.types": {"vsumbench", "vsumbench.config", "vsumbench.types"},
@@ -76,6 +79,13 @@ ALLOWED_IMPORTS: dict[str, set[str]] = {
         "vsumbench.models",
         "vsumbench.models.score_space",
     },
+    "vsumbench.models.uniform": {
+        "vsumbench",
+        "vsumbench.config",
+        "vsumbench.types",
+        "vsumbench.models",
+        "vsumbench.models.uniform",
+    },
     "vsumbench.selection": {"vsumbench", "vsumbench.selection"},
     "vsumbench.selection._common": {
         "vsumbench",
@@ -116,12 +126,47 @@ ALLOWED_IMPORTS: dict[str, set[str]] = {
         "vsumbench.metrics.rank",
     },
     "vsumbench.reporting": {"vsumbench", "vsumbench.reporting"},
-    "vsumbench.bench": {"vsumbench", "vsumbench.bench"},
-    "vsumbench.cli": {
+    "vsumbench.reporting.manifest": {
         "vsumbench",
+        "vsumbench.config",
+        "vsumbench.reporting",
+        "vsumbench.reporting.manifest",
+    },
+    "vsumbench.reporting.table": {
+        "vsumbench",
+        "vsumbench.config",
+        "vsumbench.reporting",
+        "vsumbench.reporting.manifest",
+        "vsumbench.reporting.table",
+    },
+    "vsumbench.bench": {
+        "vsumbench",
+        "vsumbench.config",
+        "vsumbench.types",
+        "vsumbench.registry",
         "vsumbench.data",
         "vsumbench.data.sources",
         "vsumbench.data.download",
+        "vsumbench.data.splits",
+        "vsumbench.data._canonical_splits",
+        "vsumbench.reporting",
+        "vsumbench.reporting.manifest",
+        "vsumbench.bench",
+    },
+    "vsumbench.cli": {
+        "vsumbench",
+        "vsumbench.config",
+        "vsumbench.types",
+        "vsumbench.registry",
+        "vsumbench.data",
+        "vsumbench.data.sources",
+        "vsumbench.data.download",
+        "vsumbench.data.splits",
+        "vsumbench.data._canonical_splits",
+        "vsumbench.reporting",
+        "vsumbench.reporting.manifest",
+        "vsumbench.reporting.table",
+        "vsumbench.bench",
         "vsumbench.cli",
     },
 }
