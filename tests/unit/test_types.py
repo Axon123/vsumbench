@@ -188,6 +188,79 @@ class TestVideo:
             )
 
 
+class TestVideoPicks:
+    """Dual frame space: original frames vs subsampled feature steps."""
+
+    def make(self, **overrides: object) -> Video:
+        kwargs: dict[str, object] = {
+            "dataset": "tvsum",
+            "video_id": "v0",
+            "n_frames": 10,
+            "shots": ShotTable(boundaries=np.array([0, 10]), n_frames=10),
+            "features": np.zeros((4, 3), dtype=np.float32),
+            "picks": np.array([0, 3, 6, 9]),
+        }
+        kwargs.update(overrides)
+        return Video(**kwargs)  # type: ignore[arg-type]
+
+    def test_happy_path(self) -> None:
+        video = self.make()
+        assert video.n_steps == 4
+        assert video.n_frames == 10
+        assert video.picks is not None and video.picks.dtype == np.int64
+        with pytest.raises(ValueError, match="read-only"):
+            video.picks[0] = 1
+
+    def test_n_steps_without_picks(self) -> None:
+        video = Video(
+            dataset="tvsum",
+            video_id="v1",
+            n_frames=6,
+            shots=ShotTable(boundaries=np.array([0, 6]), n_frames=6),
+            features=np.zeros((6, 2), dtype=np.float32),
+        )
+        assert video.n_steps == 6
+        assert (
+            Video(
+                dataset="tvsum",
+                video_id="v1",
+                n_frames=6,
+                shots=ShotTable(boundaries=np.array([0, 6]), n_frames=6),
+            ).n_steps
+            == 6
+        )
+
+    def test_accepts_integral_float_picks(self) -> None:
+        video = self.make(picks=np.array([0.0, 3.0, 6.0, 9.0]))
+        assert video.picks is not None and video.picks.dtype == np.int64
+
+    def test_rejects_out_of_range_picks(self) -> None:
+        with pytest.raises(ValueError, match=r"within \[0, n_frames"):
+            self.make(picks=np.array([0, 3, 6, 10]))
+
+    def test_rejects_non_increasing_picks(self) -> None:
+        with pytest.raises(ValueError, match="strictly increasing"):
+            self.make(picks=np.array([0, 3, 3, 9]))
+
+    def test_rejects_empty_picks(self) -> None:
+        with pytest.raises(ValueError, match="at least one"):
+            self.make(picks=np.array([], dtype=np.int64), features=np.zeros((0, 3)))
+
+    def test_rejects_picks_features_row_mismatch(self) -> None:
+        with pytest.raises(ValueError, match="length 4"):
+            self.make(features=np.zeros((5, 3), dtype=np.float32))
+
+    def test_features_without_picks_must_match_n_frames(self) -> None:
+        with pytest.raises(ValueError, match="length 6"):
+            Video(
+                dataset="tvsum",
+                video_id="v1",
+                n_frames=6,
+                shots=ShotTable(boundaries=np.array([0, 6]), n_frames=6),
+                features=np.zeros((4, 3), dtype=np.float32),
+            )
+
+
 class TestScoresMaskBudget:
     def test_scores_happy(self) -> None:
         scores = Scores(video_id="v0", values=np.linspace(0.0, 1.0, 5))

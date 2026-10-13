@@ -1,6 +1,6 @@
 # 核心接口契约（core contracts）
 
-- **状态**：M0 定稿 v1（2026-10-13）
+- **状态**：v1.1（M1，2026-10-13）；v1 定稿于 M0。v1.1 变更：`Video` 增加双帧空间语义与 `picks` 字段（§2.2，M1 考古结论），其余不变
 - **受众**：任何要给 vsumbench 添加数据集 / 模型 / 指标 / selector 的人（包括未来的我们自己）
 - **维护规则**：改任何接口或 `EvalConfig` 字段语义前必读并更新本文档。契约由 `src/vsumbench/types.py`、`config.py`、`registry.py` 承载：本文档写动机与决策记录，代码是可执行的事实，两者不一致时立即修文档。
 - **兼容性政策**：新增字段 / 新组件 = minor；改字段默认值或语义、删字段 = major，需迁移说明 + `tests/alignment/` 全绿。
@@ -47,12 +47,15 @@ config                            # 叶子：不 import 任何 vsumbench 模块
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `dataset` / `video_id` | `str` | 注册名 + 数据集内唯一 id |
-| `n_frames` | `int` | 下面所有数组的公共长度 |
-| `shots` | `ShotTable` | 必须与 `n_frames` 对齐 |
-| `features` | `float32/64 [n_frames, dim]` 或 `None` | 帧特征（GoogLeNet 等）；纯 selection/metric 实验可缺省 |
+| `n_frames` | `int` | **原始帧空间**长度；`shots` 与所有逐人标注对齐到它 |
+| `shots` | `ShotTable` | 原始帧空间的分割，与 `n_frames` 对齐 |
+| `features` | `float32/64 [n_steps, dim]` 或 `None` | 帧特征（GoogLeNet 等）；行与 `picks` 一一对应 |
+| `picks` | `int64[n_steps]` 或 `None` | 每个 feature 行对应的原始帧下标；严格递增且落在 `[0, n_frames)`；`None` 表示两个空间重合 |
 | `fps` | `float` 或 `None` | 仅秒类协议需要；源数据没有就留空，不猜 |
-| `user_scores` | `tuple[float[n_frames], ...]` | 逐人帧重要性（TVSum 20 人） |
-| `user_summaries` | `tuple[bool[n_frames], ...]` | 逐人帧级二值摘要（SumMe 15 人） |
+| `user_scores` | `tuple[float[n_frames], ...]` | 逐人帧重要性（原始帧空间） |
+| `user_summaries` | `tuple[bool[n_frames], ...]` | 逐人帧级二值摘要（原始帧空间） |
+
+**决策记录：为什么是双帧空间（v1.1）。** eccv16 TVSum/SumMe 的 h5 把特征按每 15 原始帧 1 步子采样（`features`/`gtscore` 在步空间，`user_summary`/`change_points`/`n_frames` 在原始帧空间，`picks` 是映射——M1 已逐视频验证，两数据集 75 个视频全部严格成立）。单一 `n_frames` 不变量在真实数据上不成立；让 loader 私自把某个空间重采样到另一个空间是影响数值的协议选择（规则 4），因此 `Video` 忠实携带两个空间 + `picks`，步 ↔ 帧的展开方式（展开值、尾部填充）推迟到 M2 考古后进 `EvalConfig`（§8）。`n_steps` 属性 = `len(picks)`（无 `picks` 时回落 `n_frames`）。另：两个 canonical h5 **均无**逐人重要性分（`gtscore` 是跨人聚合的派生量，被 loader 忽略），故 TVSum/SumMe 的 `user_scores` 为空；逐人分数需另接原始 ydata 标注（v0.1 后）。
 
 **GT 原始性原则**：loader 只做格式搬运，不做任何协议加工——不归一化、不聚合、不把 gtscore 转成摘要。`Video` 里存的是原始逐人标注；每个「多标注怎么合成一个数」的选择都归 `EvalConfig`（规则 4）。
 
@@ -153,7 +156,7 @@ class DatasetAdapter(Protocol):
 
 切分配置是带 `kind` 标签的 tagged union：
 
-- `CanonicalSplits(name)` —— 使用已发表的具名切分（`tvsum-canonical-5` 等，M1 内置）；
+- `CanonicalSplits(name)` —— 使用已发表的具名切分；M1 内置 `tvsum-canonical-5` 与 `summe-canonical-5`（VASNet 谱系，逐字转录自 PGL-SUM/CA-SUM 的 `data/splits/*.json`）；
 - `RandomSplits(n_folds=5, seed=0)` —— 种子化随机 k-fold；`seed` 独立于顶层 `seed`，便于固定切分复用。
 
 **JSON 契约**：`to_dict()` 输出 JSON-safe dict（tuple→list，tagged union 带 `"kind"`）；`from_dict()` 拒绝未知键（防手写配置拼错字段名）、缺省键回落默认值；`to_json/from_json/save/load` 走该规范形式。
@@ -198,10 +201,10 @@ class DatasetAdapter(Protocol):
 以下是已知会影响数值、但**尚无依据钉死**的选择。每条定稿流程：进 `EvalConfig` 字段（或确认现有字段语义）→ `docs/protocols/*.md` 记录出处 → 补手算用例 / 对齐测试。
 
 - TVSum `gtscore` → 用户摘要的构造方式（段聚合、预算、knapsack vs top-k）；
-- budget 的帧数取整规则（round / floor / ceil）；
+- budget 的帧数取整规则（round / floor / ceil；已知 PGL-SUM 谱系对原始帧数用 `int(x * 0.15)` 即 floor）；
 - gtscore 训练目标的归一化（VASNet 的 per-video min_max）与 `score_normalization` 的确切作用位置（训练目标 vs 选择前）；
-- 特征帧率与 `n_frames` 的对齐（部分源仓库有 subsample）；
-- SumMe fps 缺省的处理；
+- 特征帧率与 `n_frames` 的对齐（部分源仓库有 subsample）——**M1 已钉死事实**：eccv16 h5 双粒度 + `picks = range(0, n_frames, 15)`（见 §2.2 决策记录）；**待定**：步分 → 原始帧分的展开协议（`Scores` 的规范空间、展开值、`picks[-1]` 之后的尾部填充——PGL-SUM `generate_summary.py` 用前向填充、尾部补 0，需考古各仓库是否一致后进 `EvalConfig`）；
+- SumMe fps 缺省的处理（h5 无 fps；`v_length` 存在但 fps 属推断，暂不猜）；
 - F1@K 的多预算语义（GT 摘要固定 15% 还是随 K 同步）。
 
 ## 9. 组件测试准入（合并门槛）

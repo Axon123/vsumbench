@@ -8,6 +8,11 @@ Conventions
 -----------
 - Frame indices are ``0 .. n_frames - 1``; shot ``i`` covers the half-open
   range ``[boundaries[i], boundaries[i + 1])``.
+- :class:`Video` carries two frame spaces when the source subsamples: the
+  **original** space (``n_frames`` frames: shots, user annotations) and the
+  **step** space (``n_steps`` rows: ``features``), linked by ``picks``.
+  Which space scores live in and how ``picks`` expands between them is a
+  protocol choice deferred to M2 archaeology; loaders store both spaces raw.
 - :class:`Scores` are always **per-frame**. Segment-level quantities are
   derived through the explicitly configured aggregation
   (``EvalConfig.segment_score_aggregation``), never implicitly inside a
@@ -159,15 +164,26 @@ class Video:
     ``user_scores`` / ``user_summaries`` is expected for evaluation, but not
     enforced — score-only experiments may carry none.
 
+    The eccv16 TVSum/SumMe files subsample frames (one GoogLeNet feature
+    every 15 original frames), so a faithful video lives in two spaces:
+    annotations index the *original* ``n_frames`` frames while ``features``
+    has one row per *step*, i.e. per entry of ``picks``. ``picks is None``
+    means the two spaces coincide (``n_steps == n_frames``). How scores move
+    between the spaces is pinned in M2 (core-contracts.md §8), not here.
+
     Attributes:
         dataset: dataset registry name, e.g. ``"tvsum"``.
         video_id: dataset-unique identifier.
-        n_frames: number of frames; every array below has this length.
-        shots: frame segmentation aligned with ``n_frames``.
-        features: optional ``[n_frames, dim]`` float array of frame features.
+        n_frames: number of original frames; ``shots`` and every per-user
+            annotation have this length.
+        shots: frame segmentation of the original frame space.
+        features: optional ``[n_steps, dim]`` float array of frame features;
+            rows correspond 1:1 to ``picks``.
+        picks: optional ``int64[n_steps]`` original-frame index of each
+            feature row; strictly increasing within ``[0, n_frames)``.
         fps: optional native frame rate; only second-based protocols need it.
-        user_scores: per-user frame importance arrays (e.g. TVSum's 20 annotators).
-        user_summaries: per-user boolean frame masks (e.g. SumMe's 15 selections).
+        user_scores: per-user frame importance arrays (original space).
+        user_summaries: per-user boolean frame masks (original space).
     """
 
     dataset: str
@@ -175,6 +191,7 @@ class Video:
     n_frames: int
     shots: ShotTable
     features: np.ndarray | None = None
+    picks: np.ndarray | None = None
     fps: float | None = None
     user_scores: tuple[np.ndarray, ...] = ()
     user_summaries: tuple[np.ndarray, ...] = ()
@@ -195,7 +212,22 @@ class Video:
                 f"Video.shots indexes {self.shots.n_frames} frames "
                 f"but Video.n_frames is {self.n_frames}"
             )
+        if self.picks is not None:
+            object.__setattr__(
+                self, "picks", _freeze_int_boundaries(self.picks, name="Video.picks")
+            )
+            picks = self.picks
+            if picks.size < 1:
+                raise ValueError("Video.picks must hold at least one index")
+            if picks[0] < 0 or picks[-1] >= self.n_frames:
+                raise ValueError(
+                    f"Video.picks must lie within [0, n_frames={self.n_frames}), "
+                    f"got [{picks[0]}, {picks[-1]}]"
+                )
+            if bool(np.any(np.diff(picks) <= 0)):
+                raise ValueError("Video.picks must be strictly increasing")
         if self.features is not None:
+            expected_rows = self.picks.shape[0] if self.picks is not None else self.n_frames
             object.__setattr__(
                 self,
                 "features",
@@ -204,7 +236,7 @@ class Video:
                     name="Video.features",
                     ndim=2,
                     category=np.floating,
-                    length=self.n_frames,
+                    length=expected_rows,
                 ),
             )
         if self.fps is not None:
@@ -243,6 +275,15 @@ class Video:
                 for i, m in enumerate(self.user_summaries)
             ),
         )
+
+    @property
+    def n_steps(self) -> int:
+        """Length of the step space: one entry per feature row / pick."""
+        if self.picks is not None:
+            return int(self.picks.shape[0])
+        if self.features is not None:
+            return int(self.features.shape[0])
+        return self.n_frames
 
 
 @dataclass(frozen=True)

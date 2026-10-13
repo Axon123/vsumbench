@@ -173,10 +173,11 @@ class TestModuleRegistries:
         ):
             assert isinstance(fake, protocol)
 
-    def test_builtin_registries_are_empty_in_m0(self) -> None:
-        # No built-in components ship until M1+; entry-point groups stay vacant.
+    def test_builtin_registries_content_matches_milestones(self) -> None:
+        # M1 ships the two dataset adapters; other groups stay vacant until
+        # M2 (selectors/metrics) and M3 (models).
+        assert DATASETS.names() == ("summe", "tvsum")
         assert MODELS.names() == ()
         assert SELECTORS.names() == ()
         assert SUMMARY_METRICS.names() == ()
         assert RANK_METRICS.names() == ()
-        assert DATASETS.names() == ()

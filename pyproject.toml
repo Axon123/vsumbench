@@ -45,7 +45,10 @@ vsumm = "vsumbench.cli:main"
 # that third-party packages use (see docs/design/core-contracts.md §5):
 #   vsumbench.datasets / vsumbench.models / vsumbench.selectors
 #   vsumbench.metrics (summary metrics) / vsumbench.rank_metrics (rank metrics)
-# Entries land here from M1/M2/M3 onward.
+# Models (M3), selectors and metrics (M2) land here later.
+[project.entry-points."vsumbench.datasets"]
+tvsum = "vsumbench.data.tvsum:TVSUM_ADAPTER"
+summe = "vsumbench.data.summe:SUMME_ADAPTER"
 
 [tool.setuptools.dynamic]
 version = { attr = "vsumbench.__version__" }

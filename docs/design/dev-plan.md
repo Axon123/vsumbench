@@ -138,5 +138,6 @@ v0.1 之后的事（OVP / VTW / QFVS、Spearman ρ、SUM-GAN / DR-DSN / CSNet、
 
 ## 6. 进度记录
 
+- 2026-10-13：**M1 完成**。落地：`data/sources.py`（eccv16 TVSum/SumMe 镜像表 + sha256，出处：ECCV16 特征 → KaiyangZhou h5 → e-apostolidis 仓库内嵌 rar）、`data/download.py`（`vsumm download`，多镜像 + sha256 校验 + bsdtar/unrar/unar/7z 解包 + `VSUM_CACHE_DIR`/`--root` 离线覆盖，stdlib-only）、`data/_eccv16.py` + `tvsum.py`/`summe.py`（adapter 经 entry points 注册）、`data/splits.py`（`tvsum-canonical-5`/`summe-canonical-5` 逐字转录 + 种子化随机 k-fold）、`Video` 契约升 v1.1（双帧空间 + `picks` 字段，eccv16 h5 的特征在 15 帧子采样步空间、GT 在原始帧空间，详见 core-contracts §2.2 决策记录）。测试：合成 h5 fixture 全离线单测 141 个（download 用本地 HTTP + tar 镜像，含坏镜像回退/校验失败不落盘）；真实数据集成测试 6 个（checksum + 全量加载 + canonical 切分匹配）本地通过；真实 rar 解包→校验→落盘路径已验证。考古事实（逐视频验证 75/75）：`picks = range(0, n_frames, 15)`、`change_points` 闭区间端点完美铺贴、`user_summary` 严格二值、两 h5 均无逐人重要性分。
 - 2026-10-13：**M0 完成**。落地：pyproject（src layout、`torch`/`dev` extras、ruff/mypy strict/pytest 配置）、`types`/`config`/`registry`/`bench`/`cli` 及子包骨架（`py.typed` + `vsumm` 入口）、CI（Python 3.10–3.13 矩阵 + macos）、pre-commit、83 个单元测试（含分层依赖守护测试），三门槛本地全绿（3.10 / 3.12 双版本验证）。契约定稿 `docs/design/core-contracts.md` v1，含三处已批准偏差：Selector 显式 `aggregation` 参数、metrics 拆 summary/rank 两组、新增 selectors 注册组；GT 摘要构造等待考古项在 §8 列出。
 - 2026-10-13：计划定稿；M0 尚未启动。
