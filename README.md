@@ -1,33 +1,35 @@
 # vsumbench
 
-**A unified, reproducible evaluation toolkit for video summarization research.**
+**A unified experiment framework for video summarization research.**
 
-Video summarization evaluation has been fragmented for a decade: every paper ships its own metric implementation, its own dataset loading code, and its own splits. Numbers between papers are often not comparable, and reproducing baselines means resurrecting half-a-dozen Keras-era repositories with dead data links.
+Video summarization evaluation has been fragmented for a decade: every paper ships its own dataset loading code, its own metric implementation, and its own splits — so setting up experiments means resurrecting half-a-dozen Keras-era repositories with dead data links, and numbers between papers are often not comparable.
 
-`vsumbench` is the missing piece — the `lm-evaluation-harness` for the video summarization community:
+`vsumbench` gives your method one shared, ready-to-run substrate: canonical datasets with checksummed downloads, one explicit evaluation protocol, and a results manifest that makes every number traceable. It is the `lm-evaluation-harness` for the video summarization community — you bring the method, we provide the experiment environment:
 
 ```bash
 pip install vsumbench
 
-vsumm eval --model pgslum --dataset tvsum --split canonical --metrics all
+vsumm download tvsum
+vsumm eval --model mine --dataset tvsum --splits tvsum-canonical-5
 ```
 
-And for your own model, all you need is a function that maps video features to per-frame importance scores:
+For your own model, all you need is a class that maps a video to per-frame importance scores:
 
 ```python
 from vsumbench import Bench
 
-bench = Bench(dataset="tvsum", split="canonical")
+bench = Bench(dataset="tvsum", splits="tvsum-canonical-5")
 bench.register("mine", my_model)
 
-bench.compare(["uniform", "vasnet", "pglsum", "mine"])
-# → the comparison table for your paper, under one shared protocol
+bench.run()  # → per-fold F1 under the shared protocol + run manifest
 ```
+
+Comparison numbers for other methods go into your table straight from their papers, as always — but now your own numbers are computed under one documented, reproducible protocol instead of yet another private variant.
 
 ## Design principles
 
-- **Faithful.** Every ported baseline is numerically aligned against its original implementation (fixed seeds, tolerance-checked, run in CI). Deviations are documented, not hidden.
-- **Explicit evaluation.** Contested protocol choices — frame-selection strategy, budget, splits, normalization — are explicit parameters with recommended defaults. Disagreements become configurable, not silent.
+- **Faithful protocol.** The evaluation pipeline (score expansion, shot selection, budgets, F1) is transcribed from the reference implementations and verified against them on the real datasets (see `tests/alignment/`). Deviations are documented, not hidden.
+- **Explicit evaluation.** Contested protocol choices — frame-selection strategy, budget, GT aggregation, splits, normalization — are explicit parameters with recommended defaults. Disagreements become configurable, not silent.
 - **Minimal.** Core depends on `numpy` + `h5py` only; frameworks are optional.
 - **Data never bundled.** `vsumm download` fetches datasets from their original sources with checksum verification. We distribute loaders, not data.
 
@@ -37,16 +39,16 @@ bench.compare(["uniform", "vasnet", "pglsum", "mine"])
 |---|---|---|
 | Datasets | TVSum, SumMe, TVSum+SumMe | OVP, VTW, QFVS |
 | Metrics | F1@{10,15,30,50}% (shot-based / knapsack selection), Kendall's τ | Spearman's ρ, extended protocols |
-| Baselines | uniform, bi-LSTM, VASNet, PGLSUM | SUM-GAN family, DR-DSN, CSNet |
+| Models | your own, via the registry (plus a no-learning `uniform` reference for smoke tests) | community ports of published methods |
 | Splits | TVSum & SumMe canonical 5-fold, seed-controlled random splits | community splits |
 
 ## Status
 
-🚧 **Early development.** The protocol archaeology (documenting every implicit evaluation choice in existing repositories) is underway — findings will be published in the [docs](docs/) directory and summarized in a write-up.
+🚧 **Early development.** The protocol archaeology (documenting every implicit evaluation choice in existing repositories) is done for the TVSum/SumMe lineage — findings live in [docs/protocols](docs/protocols/).
 
 ## Contributing
 
-New models join through the registry — see [CONTRIBUTING.md](CONTRIBUTING.md) (coming soon). Ported baselines must pass alignment tests against their originals before merging.
+New models join through the registry — see [CONTRIBUTING.md](CONTRIBUTING.md) (coming soon). If you port a published method, consider shipping alignment tests against its original implementation so others can trust the port.
 
 ## License
 

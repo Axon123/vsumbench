@@ -175,7 +175,7 @@ class TestModuleRegistries:
 
     def test_builtin_registries_content_matches_milestones(self) -> None:
         # M1 ships the dataset adapters; M2 adds selectors and metrics;
-        # models land with M3.
+        # the uniform reference model lands with the orchestration milestone.
         assert DATASETS.names() == ("summe", "tvsum")
         assert MODELS.names() == ()
         assert SELECTORS.names() == ("greedy", "knapsack")

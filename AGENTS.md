@@ -4,7 +4,7 @@
 
 ## 项目定位
 
-vsumbench 是视频摘要（video summarization）领域的统一可复现评测工具包，对标 lm-evaluation-harness。核心价值：评测协议显式化、baseline 数值可对齐。背景见 [README.md](README.md)；总体开发计划、里程碑与**当前进度**见 [docs/design/dev-plan.md](docs/design/dev-plan.md)。
+vsumbench 是视频摘要（video summarization）领域的统一实验框架，对标 lm-evaluation-harness：让大家**用统一的数据集和统一的评测协议跑自己的方法**，简化搭建实验环境的流程。核心价值：数据与协议开箱即用、评测协议显式化、协议层数值与源仓库实现对齐。**不内置、不复现他人的学习方法**——论文中与其他方法的对比数字按社区惯例直接引自原论文；学习模型由使用者/社区经 registry 接入。背景见 [README.md](README.md)；总体开发计划、里程碑与**当前进度**见 [docs/design/dev-plan.md](docs/design/dev-plan.md)。
 
 ## 铁律（任何改动不得违反）
 
@@ -12,7 +12,7 @@ vsumbench 是视频摘要（video summarization）领域的统一可复现评测
 2. **分层单向依赖**：`cli / reporting / bench → selection / metrics / models → data → types`。低层禁止 import 高层；models 与 metrics 互不依赖。
 3. **开闭原则**：新增数据集 / 模型 / 指标 = 实现对应 Protocol 接口 + 在 registry 注册 + 配测试。不允许为接入新组件而修改核心代码路径。
 4. **协议改动必须显式**：任何影响数值的评测选择（标注聚合方式、归一化、budget 定义、selection 策略、split）只能是 `EvalConfig` 的显式参数，禁止埋进代码逻辑里静默改变。
-5. **对齐测试是合并门槛**：改动可能影响 baseline 数值时，`tests/alignment/` 必须全绿。若确需偏离原始实现，先在 `docs/protocols/` 记录原因与偏差，再改代码。
+5. **对齐测试是合并门槛**：改动可能影响评测数值（加载、展开、selection、指标）时，`tests/alignment/`（协议层：参考实现逐字转录比对）必须全绿。若确需偏离原始实现，先在 `docs/protocols/` 记录原因与偏差，再改代码。
 6. **数据永不入库**：`data/`、`runs/`、`*.h5` 已 gitignore。仓库只分发 loader 与 checksum，不分发数据；不得硬编码本机数据路径。
 
 ## 质量门槛

@@ -27,6 +27,7 @@ class Bench:
 
     def run(self) -> NoReturn:
         raise NotImplementedError(
-            "Bench.run lands in M4 (see docs/design/dev-plan.md): "
-            "M2 provides selectors and metrics, M3 the baselines, M4 orchestration and manifests."
+            "Bench.run lands in the orchestration milestone (see docs/design/dev-plan.md): "
+            "selectors and metrics shipped in M2; models come from the registry "
+            "(built-in learned baselines were descoped)."
         )

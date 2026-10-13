@@ -155,7 +155,7 @@ class DatasetAdapter(Protocol):
 | `segment_score_aggregation` | `"mean" \| "max"` = `"mean"` | 帧分 → 段分聚合（§2.3 决策）。谱系全部用 mean（max 为本工具包的显式泛化） |
 | `budget_rounding` | `"floor" \| "round" \| "ceil"` = `"floor"` | 预算 → 帧数取整（M2 考古：全部谱系仓库 floor，`int(n_frames * proportion)`） |
 | `step_score_expansion` | `"forward_fill" \| "zero_fill"` = `"forward_fill"` | 步分 → 帧分展开（M2 考古：谱系为前向填充、尾部延续，见 §2.2 M2 定稿与 protocols/eccv16-summary-protocol.md §1） |
-| `score_normalization` | `{method: none/min_max/z_score}` = `none` | 打分归一化。M2 考古定稿作用位置：谱系在**选择前不归一化**预测分；min_max 只作为**训练目标**归一化存在（VASNet），由 M3 模型按 config 消费，不作用于评测路径 |
+| `score_normalization` | `{method: none/min_max/z_score}` = `none` | 打分归一化。M2 考古定稿作用位置：谱系在**选择前不归一化**预测分；min_max 只作为**训练目标**归一化存在（VASNet 口径），由接入的模型（第三方/自研）按 config 消费，不作用于评测路径 |
 | `training` | `TrainingConfig` | epochs / lr / batch / device + `extra`（模型专属 JSON 参数，同样进 manifest，无处可藏） |
 
 切分配置是带 `kind` 标签的 tagged union：
@@ -187,7 +187,7 @@ class DatasetAdapter(Protocol):
 - 值必须是**实例**（不是类）。运行时只做属性/方法存在性检查（`runtime_checkable` protocol 的 `isinstance`），签名兼容由 mypy 把关。
 - 发现时机：首次 `get()/names()` 惰性扫描 entry points；加载失败抛 `RuntimeError` 并指名出错条目。
 - 优先级：显式 `register()` > 同名 entry point（先到先得，`setdefault` 语义）。
-- **内置组件（M1+ 的 tvsum/summe、M2 的 selector/指标、M3 基线）走同一机制**，在我们自己的 `pyproject.toml` 里声明，与第三方完全同构——这是「开闭原则」的机制保证。
+- **内置组件（M1 的 tvsum/summe、M2 的 selector/指标、M3 的 uniform 参照）走同一机制**，在我们自己的 `pyproject.toml` 里声明，与第三方完全同构——这是「开闭原则」的机制保证。学习模型一律第三方接入（2026-10-13 定位调整，不内置基线）。
 
 ## 6. 随机性与可复现
 
@@ -215,6 +215,6 @@ M2 对六个源仓库（VASNet fork、PGL-SUM、CA-SUM、SUM-GAN-AAE/sl、DR-DSN
 ## 9. 组件测试准入（合并门槛）
 
 - **数据集 adapter**：合成 fixture 单测（零网络、零真实数据）+ checksum 集成测试（`-m integration`）。
-- **模型**：对齐测试（`tests/alignment/` 金色 fixture + 容差断言）；已知偏差先记录 `docs/protocols/` 再改代码。
+- **模型**：vsumbench 不内置学习模型（定位调整，见 dev-plan）；内置的 `uniform` 参照只需单测。第三方移植已发表模型时**建议**附对齐测试（参考 `tests/alignment/` 的逐字转录法），已知偏差先记录 `docs/protocols/`。
 - **指标**：手算用例（必须有，小数组人工算期望值）。
 - **selector**：边界条件（budget 全选 / 极小、单段视频、并列分数、恰好整除）。
