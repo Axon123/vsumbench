@@ -245,9 +245,9 @@ def test_h5_run_matches_direct_computation(h5_root: Path, tmp_path: Path) -> Non
                 scores, video.shots, Budget(fraction, "floor"), aggregation="mean"
             )
             expected = float(np.mean(f1.score(mask, video)))
-            assert _video_value(result, vid, "f1", str(fraction)) == pytest.approx(
-                expected
-            ), f"{vid} @ {fraction}"
+            assert _video_value(result, vid, "f1", str(fraction)) == pytest.approx(expected), (
+                f"{vid} @ {fraction}"
+            )
     assert len(result.results["per_fold"]) == 3
     test_sets = [set(fold["test"]) for fold in result.results["per_fold"]]
     assert set().union(*test_sets) == set(videos)
