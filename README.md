@@ -160,7 +160,7 @@ Data lands in `$VSUM_CACHE_DIR` (default `~/.cache/vsumbench`), checksum-verifie
 
 ## Status
 
-🚧 **Early development.** The data layer (`vsumm download`), the protocol layer (selectors, F1, reference-protocol τ/ρ against `gtscore`, alignment tests) and the orchestrator (`vsumm eval` / `vsumm report`, run manifests, the `Bench` API) are implemented — see [docs/design/dev-plan.md](docs/design/dev-plan.md) for progress. The protocol archaeology for the TVSum/SumMe lineage lives in [docs/protocols](docs/protocols/). Remaining for v0.1: docs site, PyPI release.
+🚧 **Early development.** The data layer (`vsumm download`), the protocol layer (selectors, F1, reference-protocol τ/ρ against `gtscore`, alignment tests) and the orchestrator (`vsumm eval` / `vsumm report`, run manifests, the `Bench` API) are implemented — see [docs/design/dev-plan.md](docs/design/dev-plan.md) for progress. The protocol archaeology for the TVSum/SumMe lineage lives in [docs/protocols](docs/protocols/). Remaining for v0.1: PyPI release.
 
 ## Contributing
 
