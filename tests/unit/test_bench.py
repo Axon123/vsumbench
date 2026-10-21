@@ -23,6 +23,7 @@ from vsumbench.data._eccv16 import Eccv16Adapter
 from vsumbench.data.download import ChecksumError
 from vsumbench.data.sources import SOURCES, DatasetSpec, FileSpec
 from vsumbench.data.splits import canonical_splits
+from vsumbench.models.score_space import expand_step_scores
 from vsumbench.models.uniform import UNIFORM_MODEL
 from vsumbench.registry import DATASETS, RANK_METRICS, SELECTORS, SUMMARY_METRICS
 from vsumbench.types import Budget, Scores, ShotTable, Video
@@ -448,6 +449,50 @@ def test_nan_metric_values_land_as_null(tmp_path: Path) -> None:
     # uniform scores are constant -> tau NaN against every user -> null
     assert _video_value(result, "n1", "kendall_tau", "none") is None
     assert result.summary["kendall_tau"]["none"]["mean"] is None
+
+
+class _GtEchoModel:
+    """Re-predicts the dataset's own gtscore: a perfect ranker by construction."""
+
+    name = "bench-gt-echo"
+
+    def fit(self, videos: Any, config: Any) -> None: ...
+
+    def predict(self, video: Video) -> Scores:
+        assert video.gt_score is not None and video.picks is not None
+        values = expand_step_scores(video.gt_score, video.picks, video.n_frames)
+        return Scores(video_id=video.video_id, values=values)
+
+
+def test_gtscore_rank_metrics_end_to_end(h5_root: Path, tmp_path: Path) -> None:
+    # Sampling the forward-filled echo at picks returns gtscore verbatim, so
+    # both correlations must be exactly 1 in every fold.
+    bench = Bench(
+        dataset="bench-h5",
+        metrics=("kendall_tau_gtscore", "spearman_rho_gtscore"),
+        budgets=(0.15,),
+        splits=RandomSplits(n_folds=2),
+        data_root=h5_root,
+    )
+    bench.register("bench-gt-echo", _GtEchoModel())
+    result = bench.run(output_dir=tmp_path / "runs")
+    for metric in ("kendall_tau_gtscore", "spearman_rho_gtscore"):
+        assert result.summary[metric]["none"]["mean"] == 1.0
+        assert _video_value(result, "video_1", metric, "none") == 1.0
+
+
+def test_gtscore_metrics_constant_predictions_land_as_null(h5_root: Path, tmp_path: Path) -> None:
+    # The default uniform model emits constant scores: an undefined ranker,
+    # NaN per user, null in the manifest.
+    result = Bench(
+        dataset="bench-h5",
+        metrics=("kendall_tau_gtscore", "spearman_rho_gtscore"),
+        budgets=(0.15,),
+        splits=RandomSplits(n_folds=2),
+        data_root=h5_root,
+    ).run(output_dir=tmp_path / "runs")
+    assert _video_value(result, "video_1", "spearman_rho_gtscore", "none") is None
+    assert result.summary["kendall_tau_gtscore"]["none"]["mean"] is None
 
 
 def test_explicit_config_object_runs(tmp_path: Path) -> None:

@@ -60,3 +60,24 @@ def test_canonical_splits_match_loaded_ids(dataset: str) -> None:
         CanonicalSplits(name=f"{dataset}-canonical-5"), [v.video_id for v in videos]
     )
     assert len(folds) == 5
+
+
+def test_gtscore_rank_metrics_echo_is_perfect(dataset: str) -> None:
+    # Re-predicting the dataset's own gtscore (expanded to frame space) and
+    # sampling it back at picks must rank perfectly: tau-b = rho = 1 for
+    # every real video, tying the metric, the loader's gt_score and the
+    # step-space sampling convention together on canonical data.
+    from vsumbench.metrics.rank import (
+        KENDALL_TAU_GTSCORE_METRIC,
+        SPEARMAN_RHO_GTSCORE_METRIC,
+    )
+    from vsumbench.models.score_space import expand_step_scores
+    from vsumbench.types import Scores
+
+    videos = DATASETS.get(dataset).load(download_mod.cache_dir())
+    for video in videos:
+        assert video.gt_score is not None and video.picks is not None
+        echoed = expand_step_scores(video.gt_score, video.picks, video.n_frames)
+        scores = Scores(video_id=video.video_id, values=echoed)
+        assert KENDALL_TAU_GTSCORE_METRIC.score(scores, video)[0] == 1.0
+        assert SPEARMAN_RHO_GTSCORE_METRIC.score(scores, video)[0] == 1.0

@@ -1,6 +1,6 @@
 # 核心接口契约（core contracts）
 
-- **状态**：v1.3（M3，2026-10-13）。v1.1：`Video` 增加双帧空间语义与 `picks` 字段（§2.2）；v1.2：`Budget` 增加 `rounding` 字段（§2.4）、`EvalConfig` 增加 `budget_rounding` / `step_score_expansion`（§4），§8 的 M2 留白项全部定稿并修正一处 M1 错误记述（展开尾部语义）；v1.3：新增 §10 编排层（Bench / RunResult / run manifest 结构，M3 落地）
+- **状态**：v1.4（2026-10-21）。v1.1：`Video` 增加双帧空间语义与 `picks` 字段（§2.2）；v1.2：`Budget` 增加 `rounding` 字段（§2.4）、`EvalConfig` 增加 `budget_rounding` / `step_score_expansion`（§4），§8 的 M2 留白项全部定稿并修正一处 M1 错误记述（展开尾部语义）；v1.3：新增 §10 编排层（Bench / RunResult / run manifest 结构，M3 落地）；v1.4：`Video` 增加 `gt_score`（§2.2）、rank 指标新增 gtscore 参考口径条目 `kendall_tau_gtscore` / `spearman_rho_gtscore`（§3.3），并修正 §3.3 「20 份 gtscore」误记（canonical h5 仅有单份聚合 gtscore，逐人分数不存在于其中）
 - **受众**：任何要给 vsumbench 添加数据集 / 模型 / 指标 / selector 的人（包括未来的我们自己）
 - **维护规则**：改任何接口或 `EvalConfig` 字段语义前必读并更新本文档。契约由 `src/vsumbench/types.py`、`config.py`、`registry.py` 承载：本文档写动机与决策记录，代码是可执行的事实，两者不一致时立即修文档。
 - **兼容性政策**：新增字段 / 新组件 = minor；改字段默认值或语义、删字段 = major，需迁移说明 + `tests/alignment/` 全绿。
@@ -51,6 +51,7 @@ config                            # 叶子：不 import 任何 vsumbench 模块
 | `shots` | `ShotTable` | 原始帧空间的分割，与 `n_frames` 对齐 |
 | `features` | `float32/64 [n_steps, dim]` 或 `None` | 帧特征（GoogLeNet 等）；行与 `picks` 一一对应 |
 | `picks` | `int64[n_steps]` 或 `None` | 每个 feature 行对应的原始帧下标；严格递增且落在 `[0, n_frames)`；`None` 表示两个空间重合 |
+| `gt_score` | `float32/64[n_steps]` 或 `None` | 数据集自带的跨人聚合重要性分（eccv16 h5 `gtscore`），步空间、与 `picks` 一一对应；原样搬运，见下方决策记录 |
 | `fps` | `float` 或 `None` | 仅秒类协议需要；源数据没有就留空，不猜 |
 | `user_scores` | `tuple[float[n_frames], ...]` | 逐人帧重要性（原始帧空间） |
 | `user_summaries` | `tuple[bool[n_frames], ...]` | 逐人帧级二值摘要（原始帧空间） |
@@ -58,6 +59,8 @@ config                            # 叶子：不 import 任何 vsumbench 模块
 **决策记录：为什么是双帧空间（v1.1）。** eccv16 TVSum/SumMe 的 h5 把特征按每 15 原始帧 1 步子采样（`features`/`gtscore` 在步空间，`user_summary`/`change_points`/`n_frames` 在原始帧空间，`picks` 是映射——M1 已逐视频验证，两数据集 75 个视频全部严格成立）。单一 `n_frames` 不变量在真实数据上不成立；让 loader 私自把某个空间重采样到另一个空间是影响数值的协议选择（规则 4），因此 `Video` 忠实携带两个空间 + `picks`，步 ↔ 帧的展开方式（展开值、尾部填充）推迟到 M2 考古后进 `EvalConfig`（§8）。`n_steps` 属性 = `len(picks)`（无 `picks` 时回落 `n_frames`）。另：两个 canonical h5 **均无**逐人重要性分（`gtscore` 是跨人聚合的派生量，被 loader 忽略），故 TVSum/SumMe 的 `user_scores` 为空；逐人分数需另接原始 ydata 标注（v0.1 后）。
 
 **M2 定稿（展开协议，v1.2）**：`Scores` 的规范空间是原始帧空间；步分 → 帧分由模型侧唯一的共享实现 `vsumbench.models.score_space.expand_step_scores` 完成，协议参数是 `EvalConfig.step_score_expansion`。eccv16 谱系实测为**前向填充、尾部延续**（尾区间 `[picks[-1], n_frames)` 取最后一个分数；M1 文档中"尾部补 0"的记述有误，参考代码的补零分支是长度错配防御的死代码——见 docs/protocols/eccv16-summary-protocol.md §1）。
+
+**决策记录：为什么搬运聚合的 `gt_score`（v1.4）。** GT 原始性原则禁止 loader *加工*，不禁止搬运数据集自带的原生字段。eccv16 h5 的 `gtscore`（跨人聚合，上游归一化流水线无文档）恰是 Zhang et al. 2016 原论文报告 τ/ρ 的比较对象；而**秩相关对单调变换不变**，上游聚合口径不可考不影响 gtscore 参考口径的 τ/ρ 数值（对 F1 类重叠指标则不成立，故 gtscore 不进摘要评测）。因此 v1.4 起原样载入 `Video.gt_score`（文件缺该键记 `None`），仅供 `*_gtscore` rank 指标与接入的学习模型作训练目标（VASNet 口径，§8）；它**永远不是** `user_scores` 的替代品，逐人契约不变。帧分 → 步分的映射是「在 `picks` 处采样」——谱系模型原生在步空间打分，这是 forward_fill 展开的规范逆；mean/max 逐步聚合一类泛化留待需要时进 `EvalConfig`（规则 4）。
 
 **GT 原始性原则**：loader 只做格式搬运，不做任何协议加工——不归一化、不聚合、不把 gtscore 转成摘要。`Video` 里存的是原始逐人标注；每个「多标注怎么合成一个数」的选择都归 `EvalConfig`（规则 4）。
 
@@ -123,7 +126,8 @@ class RankMetric(Protocol):
     def score(self, scores: Scores, video: Video) -> np.ndarray: ...  # shape [n_user_scores]
 ```
 
-- **每标注一个值**：F1 对 20 份用户摘要各算一个，Kendall τ 对 20 份 gtscore 各算一个；跨标注如何收缩成报告值（max/mean）是编排层按 `gt_aggregation` 做的事，指标本身永不聚合。
+- **每标注一个值**：F1 对每份用户摘要各算一个，Kendall τ 对每份 `user_scores` 各算一个；跨标注如何收缩成报告值（max/mean）是编排层按 `gt_aggregation` 做的事，指标本身永不聚合。（v1.0 契约此处曾误记为「τ 对 20 份 gtscore 各算一个」——canonical h5 只有**一份**聚合 gtscore，逐人重要性分不在其中；v1.4 修正。）
+- **gtscore 参考口径（v1.4）**：`kendall_tau_gtscore` / `spearman_rho_gtscore` 对 `Video.gt_score`（步空间）计算，预测帧分在 `picks` 处采样（§2.2 决策记录）。这是 Zhang et al. 2016 的报告口径，无需逐人数据即可在 tvsum/summe 上运行；两指标返回长度 1 的数组（单份 GT），`gt_aggregation` 收缩为恒等。与逐人版是**并存的协议条目**，不是替代关系。
 - 指标实现必须带手算用例单测（AGENTS.md 质量门槛）。
 
 ### 3.4 DatasetAdapter
@@ -187,7 +191,7 @@ class DatasetAdapter(Protocol):
 - 值必须是**实例**（不是类）。运行时只做属性/方法存在性检查（`runtime_checkable` protocol 的 `isinstance`），签名兼容由 mypy 把关。
 - 发现时机：首次 `get()/names()` 惰性扫描 entry points；加载失败抛 `RuntimeError` 并指名出错条目。
 - 优先级：显式 `register()` > 同名 entry point（先到先得，`setdefault` 语义）。
-- **内置组件（M1 的 tvsum/summe、M2 的 selector/指标、M3 的 uniform 参照）走同一机制**，在我们自己的 `pyproject.toml` 里声明，与第三方完全同构——这是「开闭原则」的机制保证。学习模型一律第三方接入（2026-10-13 定位调整，不内置基线）。
+- **内置组件（M1 的 tvsum/summe、M2 的 selector/指标、M3 的 uniform 参照、v1.4 的 gtscore rank 指标）走同一机制**，在我们自己的 `pyproject.toml` 里声明，与第三方完全同构——这是「开闭原则」的机制保证。学习模型一律第三方接入（2026-10-13 定位调整，不内置基线）。
 
 ## 6. 随机性与可复现
 

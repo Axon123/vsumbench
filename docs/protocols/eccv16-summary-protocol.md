@@ -48,9 +48,12 @@
 | F1@K | `budgets` 元组；机器摘要预算随 K 变化，GT 摘要原样不动（谱系一致：GT 是人工标注，不存在"GT 预算"） | — |
 | score_normalization | 谱系在**选择前不归一化**预测分；VASNet 的 min-max 只作用于**训练目标**。字段保留给 M3 模型侧消费，作用位置以此为准 | none |
 
-## 4. Kendall τ 的出处（非本谱系）
+## 4. Kendall τ / Spearman ρ 的出处（非本谱系）
 
-六个仓库**均未**计算排序相关指标。τ 进入领域来自 eccv16 原论文（Zhang et al. 2016，Table 报告 τ 与 Spearman ρ），在**步空间**上比较预测分与 h5 `gtscore`。vsumbench 实现的是 tie-corrected 的 **τ-b**（scipy/MATLAB 口径）逐人分数版（`metrics/rank.py`）；canonical h5 无逐人重要性分，故 tvsum/summe 上 τ 需等待逐人分数接入（v0.1 后，见 core-contracts §2.2）。
+六个仓库**均未**计算排序相关指标。τ 进入领域来自 eccv16 原论文（Zhang et al. 2016，Table 报告 τ 与 Spearman ρ），在**步空间**上比较预测分与 h5 `gtscore`。vsumbench 落地两条口径（`metrics/rank.py`，均 tie-corrected、取 scipy/MATLAB 口径：τ-b 与 average-rank Pearson ρ，NaN 约定一致）：
+
+- **gtscore 参考口径**（`kendall_tau_gtscore` / `spearman_rho_gtscore`，2026-10-21 落地）：直接对 `gtscore` 在步空间计算，即 Zhang 口径；预测帧分在 `picks` 处采样。秩相关对单调变换不变，故 gtscore 上游聚合口径未文档化**不影响数值**（对 F1 类重叠指标则不成立）。tvsum/summe 上今日可用。
+- **逐人分数版**（`kendall_tau`）：对每份 `user_scores` 各算一个；canonical h5 无逐人重要性分，等原始 ydata 标注接入（v0.1 后，见 core-contracts §2.2）。
 
 ## 5. 考古文件快照
 

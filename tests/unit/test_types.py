@@ -234,6 +234,54 @@ class TestVideoPicks:
         video = self.make(picks=np.array([0.0, 3.0, 6.0, 9.0]))
         assert video.picks is not None and video.picks.dtype == np.int64
 
+
+class TestVideoGtScore:
+    """Aggregated dataset gt_score: step-space length, read-only, optional."""
+
+    def make(self, **overrides: object) -> Video:
+        kwargs: dict[str, object] = {
+            "dataset": "tvsum",
+            "video_id": "v0",
+            "n_frames": 10,
+            "shots": ShotTable(boundaries=np.array([0, 10]), n_frames=10),
+            "features": np.zeros((4, 3), dtype=np.float32),
+            "picks": np.array([0, 3, 6, 9]),
+        }
+        kwargs.update(overrides)
+        return Video(**kwargs)  # type: ignore[arg-type]
+
+    def test_aligned_with_picks(self) -> None:
+        video = self.make(gt_score=np.array([0.1, 0.4, 0.2, 0.9]))
+        assert video.gt_score is not None
+        assert video.gt_score.shape == (4,)
+        with pytest.raises(ValueError, match="read-only"):
+            video.gt_score[0] = 1.0
+
+    def test_default_is_none(self) -> None:
+        assert self.make().gt_score is None
+
+    def test_length_follows_picks_not_frames(self) -> None:
+        # 10 frames, 4 picks: gt_score lives in the step space.
+        self.make(gt_score=np.array([1.0, 2.0, 3.0, 4.0]))
+
+    def test_rejects_step_count_mismatch(self) -> None:
+        with pytest.raises(ValueError, match="length 4"):
+            self.make(gt_score=np.array([1.0, 2.0, 3.0]))
+
+    def test_rejects_non_float(self) -> None:
+        with pytest.raises(TypeError, match="floating"):
+            self.make(gt_score=np.array([1, 2, 3, 4]))
+
+    def test_without_picks_must_match_n_frames(self) -> None:
+        video = Video(
+            dataset="tvsum",
+            video_id="v1",
+            n_frames=4,
+            shots=ShotTable(boundaries=np.array([0, 4]), n_frames=4),
+            gt_score=np.array([1.0, 2.0, 3.0, 4.0]),
+        )
+        assert video.gt_score is not None and video.gt_score.shape == (4,)
+
     def test_rejects_out_of_range_picks(self) -> None:
         with pytest.raises(ValueError, match=r"within \[0, n_frames"):
             self.make(picks=np.array([0, 3, 6, 10]))

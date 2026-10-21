@@ -38,13 +38,13 @@ Comparison numbers for other methods go into your table straight from their pape
 | Layer | First release (v0.1) | Later |
 |---|---|---|
 | Datasets | TVSum, SumMe, TVSum+SumMe | OVP, VTW, QFVS |
-| Metrics | F1@{10,15,30,50}% (shot-based / knapsack selection), Kendall's τ | Spearman's ρ, extended protocols |
+| Metrics | F1@{10,15,30,50}% (shot-based / knapsack selection), Kendall's τ-b and Spearman's ρ vs the dataset's `gtscore` (the Zhang et al. 2016 reference protocol) | per-user τ/ρ (needs the original ydata annotations), extended protocols |
 | Models | your own, via the registry (plus a no-learning `uniform` reference for smoke tests) | community ports of published methods |
 | Splits | TVSum & SumMe canonical 5-fold, seed-controlled random splits | community splits |
 
 ## Status
 
-🚧 **Early development.** The data layer (`vsumm download`), the protocol layer (selectors, F1/Kendall τ, alignment tests) and the orchestrator (`vsumm eval` / `vsumm report`, run manifests, the `Bench` API) are implemented — see [docs/design/dev-plan.md](docs/design/dev-plan.md) for progress. The protocol archaeology for the TVSum/SumMe lineage lives in [docs/protocols](docs/protocols/). Remaining for v0.1: docs site, CONTRIBUTING, PyPI release.
+🚧 **Early development.** The data layer (`vsumm download`), the protocol layer (selectors, F1, reference-protocol τ/ρ against `gtscore`, alignment tests) and the orchestrator (`vsumm eval` / `vsumm report`, run manifests, the `Bench` API) are implemented — see [docs/design/dev-plan.md](docs/design/dev-plan.md) for progress. The protocol archaeology for the TVSum/SumMe lineage lives in [docs/protocols](docs/protocols/). Remaining for v0.1: docs site, CONTRIBUTING, PyPI release.
 
 ## Contributing
 

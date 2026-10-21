@@ -182,6 +182,12 @@ class Video:
             rows correspond 1:1 to ``picks``.
         picks: optional ``int64[n_steps]`` original-frame index of each
             feature row; strictly increasing within ``[0, n_frames)``.
+        gt_score: optional cross-user aggregated importance array exactly
+            as shipped by the dataset (the eccv16 h5 ``gtscore``), in the
+            *step* space (one entry per pick). The aggregation pipeline is
+            the dataset's own and undocumented — carried raw for the
+            reference-protocol rank metrics and as a training target, never
+            a substitute for per-user scores (see core-contracts.md §2.2).
         fps: optional native frame rate; only second-based protocols need it.
         user_scores: per-user frame importance arrays (original space).
         user_summaries: per-user boolean frame masks (original space).
@@ -193,6 +199,7 @@ class Video:
     shots: ShotTable
     features: np.ndarray | None = None
     picks: np.ndarray | None = None
+    gt_score: np.ndarray | None = None
     fps: float | None = None
     user_scores: tuple[np.ndarray, ...] = ()
     user_summaries: tuple[np.ndarray, ...] = ()
@@ -238,6 +245,25 @@ class Video:
                     ndim=2,
                     category=np.floating,
                     length=expected_rows,
+                ),
+            )
+        if self.gt_score is not None:
+            expected_steps = (
+                self.picks.shape[0]
+                if self.picks is not None
+                else self.features.shape[0]
+                if self.features is not None
+                else self.n_frames
+            )
+            object.__setattr__(
+                self,
+                "gt_score",
+                _freeze(
+                    self.gt_score,
+                    name="Video.gt_score",
+                    ndim=1,
+                    category=np.floating,
+                    length=expected_steps,
                 ),
             )
         if self.fps is not None:

@@ -43,13 +43,16 @@ def test_load_maps_raw_fields_untouched(adapter: Eccv16Adapter, tmp_path: Path) 
         assert video.features.shape == arrays["features"].shape
         np.testing.assert_array_equal(video.features, arrays["features"])
         np.testing.assert_array_equal(video.picks, arrays["picks"])
-        # GT 原始性: per-user summaries verbatim, in original frame space,
-        # with the file's aggregated gtscore/gtsummary left behind.
+        # GT 原始性: per-user summaries verbatim, in original frame space;
+        # the file's aggregated gtscore is carried raw (reference-protocol
+        # rank metrics opt in), gtsummary stays behind.
         assert len(video.user_summaries) == arrays["user_summary"].shape[0]
         assert video.user_summaries[0].dtype == np.bool_
         for got, expected in zip(video.user_summaries, arrays["user_summary"], strict=True):
             np.testing.assert_array_equal(got, expected)
         assert video.user_scores == ()
+        assert video.gt_score is not None
+        np.testing.assert_array_equal(video.gt_score, arrays["gtscore"])
         assert video.fps is None
         # half-open boundaries derived from the file's inclusive ends
         cp = arrays["change_points"]
@@ -68,6 +71,17 @@ def test_natural_video_order(tmp_path: Path) -> None:
     )
     ids = [v.video_id for v in TVSUM_ADAPTER.load(tmp_path)]
     assert ids == ["video_1", "video_2", "video_3", "video_10"]
+
+
+def test_missing_gtscore_loads_with_gt_score_none(tmp_path: Path) -> None:
+    # gtscore is optional in the file: absence disables the reference-protocol
+    # rank metrics (they raise) but must not break loading.
+    h5_path = tmp_path / "eccv16_dataset_tvsum_google_pool5.h5"
+    write_eccv16_h5(h5_path, [SyntheticSpec()])
+    with h5py.File(h5_path, "r+") as handle:
+        del handle["video_1"]["gtscore"]
+    videos = TVSUM_ADAPTER.load(tmp_path)
+    assert videos[0].gt_score is None
 
 
 def test_missing_file_names_download_hint(tmp_path: Path) -> None:
@@ -125,6 +139,16 @@ def _non_integer_change_points(group: h5py.Group) -> None:
     group.create_dataset("change_points", data=cp)
 
 
+def _gtscore_row_mismatch(group: h5py.Group) -> None:
+    shortened = np.asarray(group["gtscore"][()])[:-1]
+    del group["gtscore"]
+    group.create_dataset("gtscore", data=shortened)
+
+
+def _non_finite_gtscore(group: h5py.Group) -> None:
+    group["gtscore"][0] = np.nan
+
+
 _MUTATIONS = {
     "drop_user_summary": _drop_user_summary,
     "gap_in_change_points": _gap_in_change_points,
@@ -135,6 +159,8 @@ _MUTATIONS = {
     "non_binary_summary": _non_binary_summary,
     "summary_width_mismatch": _summary_width_mismatch,
     "non_integer_change_points": _non_integer_change_points,
+    "gtscore_row_mismatch": _gtscore_row_mismatch,
+    "non_finite_gtscore": _non_finite_gtscore,
 }
 
 
@@ -150,6 +176,8 @@ _MUTATIONS = {
         ("non_binary_summary", "binary"),
         ("summary_width_mismatch", "n_frames"),
         ("non_integer_change_points", "integers"),
+        ("gtscore_row_mismatch", "picks"),
+        ("non_finite_gtscore", "finite"),
     ],
 )
 def test_corrupt_files_rejected(tmp_path: Path, mutation: str, message: str) -> None:

@@ -12,14 +12,16 @@ dataset             shape                    frame space
 ``user_summary``    ``[n_users, n_frames]``  original; strictly 0/1 floats
 ``n_frames``        scalar i64               original frame count
 ``n_frame_per_seg`` ``[n_shots]`` i64        = shot lengths (not loaded)
-``gtscore``         ``[n_steps]``            aggregated; ignored (rule 4)
-``gtsummary``       ``[n_steps]``            aggregated; ignored (rule 4)
+``gtscore``         ``[n_steps]``            aggregated; carried raw as ``Video.gt_score``
+``gtsummary``       ``[n_steps]``            aggregated; ignored (nothing consumes it)
 ``n_steps``, ``v_length``, ``video_name``    redundant/provenance; ignored
 ==================  =======================  ================================
 
 ``picks`` is exactly ``range(0, n_frames, 15)`` in both canonical files;
 loaders keep it as data, never as an assumed constant. Neither file carries
-per-user importance scores, so :attr:`Video.user_scores` stays empty.
+per-user importance scores, so :attr:`Video.user_scores` stays empty. The
+aggregated ``gtscore`` is loaded verbatim (present in both canonical files;
+a file without that key loads with ``gt_score=None``).
 """
 
 from __future__ import annotations
@@ -124,8 +126,30 @@ def _load_video(group: h5py.Group, dataset: str, key: str) -> Video:
         shots=ShotTable(boundaries=boundaries, n_frames=n_frames),
         features=features,
         picks=picks,
+        gt_score=_gt_score(group, where, picks.shape[0]),
         user_summaries=tuple(np.asarray(row, dtype=bool) for row in user_summary),
     )
+
+
+def _gt_score(group: h5py.Group, where: str, n_steps: int) -> np.ndarray | None:
+    """Load the file's aggregated importance scores, carried verbatim.
+
+    ``gtscore`` is the dataset's own cross-user aggregate (how it was built
+    is undocumented upstream) in step space; loading it does not make it the
+    ground truth for anything by default (rule 4) — the reference-protocol
+    rank metrics opt in explicitly. Optional in the file: absence leaves
+    ``Video.gt_score`` as None.
+    """
+    if "gtscore" not in group:
+        return None
+    values = np.asarray(group["gtscore"][()])
+    if values.ndim != 1 or not np.issubdtype(values.dtype, np.floating):
+        raise ValueError(f"{where}: gtscore must be a 1-D float array, got {values.shape}")
+    if values.shape[0] != n_steps:
+        raise ValueError(f"{where}: gtscore has {values.shape[0]} entries for {n_steps} picks")
+    if not bool(np.isfinite(values).all()):
+        raise ValueError(f"{where}: gtscore must be finite")
+    return values
 
 
 def _shot_boundaries(change_points: np.ndarray, where: str, n_frames: int) -> np.ndarray:
