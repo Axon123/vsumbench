@@ -162,11 +162,11 @@ vsumm report runs/               # 扫描 manifest → markdown 对比表
 
 ## 状态
 
-🚧 **早期开发。** 数据层（`vsumm download`）、协议层（selectors、F1、对 `gtscore` 的参考口径 τ/ρ、对齐测试）与编排层（`vsumm eval` / `vsumm report`、run manifest、`Bench` API）均已实现——进度见 [docs/design/dev-plan.md](docs/design/dev-plan.md)（中文）。TVSum/SumMe 谱系的协议考古在 [docs/protocols](docs/protocols/)。v0.1 剩余：文档站、CONTRIBUTING、PyPI 发布。
+🚧 **早期开发。** 数据层（`vsumm download`）、协议层（selectors、F1、对 `gtscore` 的参考口径 τ/ρ、对齐测试）与编排层（`vsumm eval` / `vsumm report`、run manifest、`Bench` API）均已实现——进度见 [docs/design/dev-plan.md](docs/design/dev-plan.md)（中文）。TVSum/SumMe 谱系的协议考古在 [docs/protocols](docs/protocols/)。v0.1 剩余：文档站、PyPI 发布。
 
 ## 参与贡献
 
-新模型经 registry 接入——见 [CONTRIBUTING.md](CONTRIBUTING.md)（即将推出）。如果你移植了一个已发表的方法，建议附上对其原始实现的对齐测试，让其他人可以信任这个移植。
+新模型经 registry 接入——完整指南（开发环境、各组件扩展契约、测试要求、如何带对齐测试移植已发表方法）见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 许可证
 
