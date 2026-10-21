@@ -14,14 +14,17 @@ dataset             shape                    frame space
 ``n_frame_per_seg`` ``[n_shots]`` i64        = shot lengths (not loaded)
 ``gtscore``         ``[n_steps]``            aggregated; carried raw as ``Video.gt_score``
 ``gtsummary``       ``[n_steps]``            aggregated; ignored (nothing consumes it)
-``n_steps``, ``v_length``, ``video_name``    redundant/provenance; ignored
+``n_steps``, ``v_length``            redundant; ignored
 ==================  =======================  ================================
 
 ``picks`` is exactly ``range(0, n_frames, 15)`` in both canonical files;
 loaders keep it as data, never as an assumed constant. Neither file carries
 per-user importance scores, so :attr:`Video.user_scores` stays empty. The
 aggregated ``gtscore`` is loaded verbatim (present in both canonical files;
-a file without that key loads with ``gt_score=None``).
+a file without that key loads with ``gt_score=None``). ``video_name`` exists
+only in the SumMe file (25/25 groups, e.g. ``b'Air_Force_One'``); TVSum
+groups carry no such key — the asymmetry that matters when joining the
+original ydata annotations (docs/protocols/tvsum-summe-originals.md §3).
 """
 
 from __future__ import annotations
