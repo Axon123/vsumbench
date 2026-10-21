@@ -107,13 +107,13 @@ from vsumbench import Bench
 
 bench = Bench(
     dataset="tvsum",
-    splits="tvsum-canonical-5",                          # the lineage standard
+    splits="tvsum-canonical-5",  # the lineage standard
     metrics=("f1", "kendall_tau_gtscore", "spearman_rho_gtscore"),
-    budgets=(0.15,),                                     # the lineage reports 15%
+    budgets=(0.15,),  # the lineage reports 15%
 )
-bench.register("mine", MyModel())                        # register + select in one call
-result = bench.run()                                     # → runs/<timestamp>-tvsum-mine-knapsack/
-print(result.summary["f1"]["0.15"])   # {'mean': ..., 'std': ..., 'max': ..., 'n_folds': 5}
+bench.register("mine", MyModel())  # register + select in one call
+result = bench.run()  # → runs/<timestamp>-tvsum-mine-knapsack/
+print(result.summary["f1"]["0.15"])  # {'mean': ..., 'std': ..., 'max': ..., 'n_folds': 5}
 ```
 
 Per fold the bench deep-copies your model (no cross-fold leakage), fits on the train ids, predicts the test ids, selects at each budget, computes per-user metrics and collapses them per `gt_aggregation`.

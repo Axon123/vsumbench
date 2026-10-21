@@ -62,7 +62,7 @@ from vsumbench.types import Scores
 class MyModel:
     name = "mine"
 
-    def fit(self, videos, config) -> None: ...   # train split + full EvalConfig
+    def fit(self, videos, config) -> None: ...  # train split + full EvalConfig
 
     def predict(self, video) -> Scores:
         step_scores = my_scoring(video.features)

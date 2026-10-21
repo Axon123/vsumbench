@@ -109,13 +109,13 @@ from vsumbench import Bench
 
 bench = Bench(
     dataset="tvsum",
-    splits="tvsum-canonical-5",                          # 谱系标准
+    splits="tvsum-canonical-5",  # 谱系标准
     metrics=("f1", "kendall_tau_gtscore", "spearman_rho_gtscore"),
-    budgets=(0.15,),                                     # 谱系报告 15%
+    budgets=(0.15,),  # 谱系报告 15%
 )
-bench.register("mine", MyModel())                        # 注册并选用，一步完成
-result = bench.run()                                     # → runs/<时间戳>-tvsum-mine-knapsack/
-print(result.summary["f1"]["0.15"])   # {'mean': ..., 'std': ..., 'max': ..., 'n_folds': 5}
+bench.register("mine", MyModel())  # 注册并选用，一步完成
+result = bench.run()  # → runs/<时间戳>-tvsum-mine-knapsack/
+print(result.summary["f1"]["0.15"])  # {'mean': ..., 'std': ..., 'max': ..., 'n_folds': 5}
 ```
 
 每折 bench 会 deepcopy 你的模型（跨折无泄漏）、在 train id 上 fit、对 test id predict、逐预算选段、计算逐人指标并按 `gt_aggregation` 收缩。
