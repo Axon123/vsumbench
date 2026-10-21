@@ -1,5 +1,8 @@
 # vsumbench
 
+[![English](https://img.shields.io/badge/README-English-blue)](README.md)
+[![简体中文](https://img.shields.io/badge/README-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-orange)](README.zh-CN.md)
+
 **A unified experiment framework for video summarization research.**
 
 Video summarization evaluation has been fragmented for a decade: every paper ships its own dataset loading code, its own metric implementation, and its own splits — so setting up experiments means resurrecting half-a-dozen Keras-era repositories with dead data links, and numbers between papers are often not comparable.
