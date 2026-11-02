@@ -1,9 +1,10 @@
 """``vsumm`` command line interface.
 
-Subcommands: ``download`` (M1, data layer), ``eval`` and ``report``
-(M3, orchestrator). ``eval`` builds a Bench from the flags (or reads a full
-EvalConfig JSON with ``--config``), runs it and prints the summary; every
-run lands a manifest under ``--out`` that ``report`` can aggregate later.
+Subcommands: ``download`` and ``download-media`` / ``media-path`` (data
+layer), ``eval`` and ``report`` (orchestrator). ``eval`` builds a Bench from
+the flags (or reads a full EvalConfig JSON with ``--config``), runs it and
+prints the summary; every run lands a manifest under ``--out`` that
+``report`` can aggregate later.
 """
 
 from __future__ import annotations
@@ -17,6 +18,8 @@ from vsumbench import __version__
 from vsumbench.bench import Bench
 from vsumbench.config import CanonicalSplits, EvalConfig, RandomSplits
 from vsumbench.data import download as download_mod
+from vsumbench.data import media as media_mod
+from vsumbench.data.media_sources import MEDIA_SOURCES
 from vsumbench.data.sources import SOURCES
 from vsumbench.data.splits import CANONICAL_SPLIT_NAMES
 from vsumbench.reporting.table import collect_manifests, runs_table
@@ -48,6 +51,66 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="DIR",
         help="cache root (default: $VSUM_CACHE_DIR or ~/.cache/vsumbench)",
+    )
+
+    download_media = subparsers.add_parser(
+        "download-media",
+        help="fetch official raw videos and install them under their video_id",
+        description=(
+            "Download the dataset's official video archive and install the requested "
+            "videos as <media-root>/DATASET/<video_id>.mp4. Media is addressed by "
+            "video_id from the shipped mapping, never by directory order. The official "
+            "archives are monolithic (SumMe ~2.4 GB, TVSum ~0.7 GB); without --video-id "
+            "every mapped video is installed, and the archive is deleted afterwards "
+            "unless --keep-archive is given."
+        ),
+    )
+    download_media.add_argument(
+        "dataset", choices=sorted(MEDIA_SOURCES), help="dataset registry name"
+    )
+    download_media.add_argument(
+        "--media-root",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help="media root (default: $VSUM_MEDIA_DIR or <cache>/media)",
+    )
+    download_media.add_argument(
+        "--video-id",
+        action="append",
+        dest="video_ids",
+        default=None,
+        metavar="ID",
+        help="install only this video_id (repeatable); default: every mapped video",
+    )
+    download_media.add_argument(
+        "--keep-archive",
+        action="store_true",
+        help="keep the verified archive under <media-root>/.archives for later installs",
+    )
+
+    media_path = subparsers.add_parser(
+        "media-path",
+        help="print the canonical local path for DATASET VIDEO_ID",
+        description=(
+            "Resolve one video_id to its local raw video file. Fails loudly when the "
+            "file is absent or corrupt; it never substitutes another file or uses "
+            "directory order."
+        ),
+    )
+    media_path.add_argument("dataset", choices=sorted(MEDIA_SOURCES), help="dataset name")
+    media_path.add_argument("video_id", metavar="VIDEO_ID", help="e.g. video_1")
+    media_path.add_argument(
+        "--media-root",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help="media root (default: $VSUM_MEDIA_DIR or <cache>/media)",
+    )
+    media_path.add_argument(
+        "--verify-sha256",
+        action="store_true",
+        help="also hash the file and compare against the shipped sha256",
     )
 
     evaluate = subparsers.add_parser(
@@ -177,6 +240,47 @@ def _run_download(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_download_media(args: argparse.Namespace) -> int:
+    root = None if args.media_root is None else Path(args.media_root)
+    print(f"media root: {media_mod.media_dir(root)}")
+    try:
+        paths = media_mod.download_media(
+            args.dataset,
+            root=root,
+            video_ids=args.video_ids,
+            report=print,
+            keep_archive=args.keep_archive,
+        )
+    except media_mod.MediaDownloadError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    for path in paths:
+        print(f"ready: {path}")
+    return 0
+
+
+def _run_media_path(args: argparse.Namespace) -> int:
+    root = None if args.media_root is None else Path(args.media_root)
+    try:
+        path = media_mod.media_path(
+            args.dataset,
+            args.video_id,
+            root=root,
+            verify_sha256=args.verify_sha256,
+        )
+    except media_mod.MediaNotAvailableError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(path)
+    return 0
+
+
 def _splits_spec(args: argparse.Namespace) -> CanonicalSplits | RandomSplits | None:
     if args.splits is None:
         if args.n_folds is not None or args.split_seed is not None:
@@ -269,6 +373,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "download":
         return _run_download(args)
+    if args.command == "download-media":
+        return _run_download_media(args)
+    if args.command == "media-path":
+        return _run_media_path(args)
     if args.command == "eval":
         return _run_eval(args)
     if args.command == "report":

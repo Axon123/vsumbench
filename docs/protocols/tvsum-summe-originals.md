@@ -1,6 +1,6 @@
 # TVSum / SumMe 原始论文协议与 eccv16 打包的关系
 
-- **状态**：M2 记录（2026-10-13）；2026-10-21 增补 `video_name` 不对称实测与 gtscore 搬运现状（随契约 v1.4）。论文级结论（标注自原文），代码级结论仅覆盖 h5 打包链条。
+- **状态**：M2 记录（2026-10-13）；2026-10-21 增补 `video_name` 不对称实测与 gtscore 搬运现状（随契约 v1.4）；2026-11-02 增补原始视频 `video_N` 映射（见 `docs/design/raw-media.md`）。论文级结论（标注自原文），代码级结论仅覆盖 h5 打包链条。
 - **要点**：v0.1 评测的"TVSum/SumMe"是 **eccv16 打包形态**（GoogLeNet pool5 特征 + 统一 h5 schema），不是两篇原始论文自己的评测协议。本文记录两套协议的差异，防止"复现数据集论文数字"与"复现模型论文数字"两个目标被混为一谈。
 
 ## 1. 原始论文的评测协议（论文口径）
@@ -35,6 +35,6 @@ Zhang et al.（ECCV 2016, LSTM 摘要）的预处理成为后续全部模型论�
 |---|---|
 | 原始论文协议（人工摘要转镜头空间、SumMe 30% 档、TVSum 派生摘要的在线生成） | **v0.1 不实现**。README/dev-plan 已将 v0.1 范围钉在 eccv16 打包 + 模型论文协议上；原始协议作为未来数据集扩展记录在案 |
 | `gtscore` 是派生聚合量 | 原样搬运进 `Video.gt_score`（契约 v1.4，2026-10-21 起；秩相关对单调变换不变，gtscore 参考口径 τ/ρ 可安全用它，见 eccv16-summary-protocol.md §4）；逐人版 τ/ρ 仍等 ydata 接入（v0.1 后） |
-| ydata 逐人分数与 h5 的 join key | 不对称：SumMe 文件内自带 `video_name`（原始视频名）可直接对回原始标注；TVSum 无此键，接入时需外部 `video_N ↔ 原始 id` 对应表（如原论文发布包的文件顺序，须逐视频验证）。loader 现均不加载该键（provenance） |
+| ydata 逐人分数与 h5 的 join key | 不对称：SumMe 文件内自带 `video_name`（原始视频名）可直接对回原始标注；TVSum 无此键。2026-11-02 起本仓库分发经逐视频核验的 `video_N ↔ YouTube id` 映射（官方 info TSV 行序；用 n_frames/标注长度/fps 与 gtscore 秩相关核验，见 `docs/design/raw-media.md`），原始视频下载与解析均以 `video_id` 为键，禁止按目录顺序对齐。loader 仍不加载该键（provenance） |
 | TVSum `user_summary` 的"预算生成"语义 | 用户摘要即数据（各人预算由标注工具固定）；评测时机器预算由 `EvalConfig.budgets` 显式给出，二者独立 |
 | fps | 两 h5 均无 fps（SumMe 仅 `v_length`）；秒类协议留空不猜（core-contracts §8） |

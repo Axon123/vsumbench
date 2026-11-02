@@ -39,6 +39,19 @@ ALLOWED_IMPORTS: dict[str, set[str]] = {
         "vsumbench.data.sources",
         "vsumbench.data.download",
     },
+    "vsumbench.data.media_sources": {
+        "vsumbench",
+        "vsumbench.data",
+        "vsumbench.data.media_sources",
+    },
+    "vsumbench.data.media": {
+        "vsumbench",
+        "vsumbench.data",
+        "vsumbench.data.download",
+        "vsumbench.data.media",
+        "vsumbench.data.media_sources",
+        "vsumbench.data.sources",
+    },
     "vsumbench.data.splits": {
         "vsumbench",
         "vsumbench.config",
@@ -161,6 +174,8 @@ ALLOWED_IMPORTS: dict[str, set[str]] = {
         "vsumbench.data",
         "vsumbench.data.sources",
         "vsumbench.data.download",
+        "vsumbench.data.media",
+        "vsumbench.data.media_sources",
         "vsumbench.data.splits",
         "vsumbench.data._canonical_splits",
         "vsumbench.reporting",
