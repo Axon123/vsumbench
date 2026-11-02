@@ -97,6 +97,7 @@ def test_download_fetches_from_mirror(tmp_path: Path, capsys: pytest.CaptureFixt
     assert (tmp_path / td.FAKE_FILENAME).read_bytes() == td.FAKE_BYTES
     out = capsys.readouterr().out
     assert "cache root" in out
+    assert "docs/design/raw-media.md" in out
     assert f"ready: {tmp_path / td.FAKE_FILENAME}" in out
 
 
