@@ -21,7 +21,10 @@ venv/
 # src/vsumbench/data/ (the dataset-loader package).
 /data/
 /runs/
+/media/
 *.h5
+*.mp4
+*.webm
 
 # OS / editor
 .DS_Store

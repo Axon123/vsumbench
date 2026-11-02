@@ -55,7 +55,7 @@ bench.run()  # → 共享协议下的逐折 F1 + run manifest
 | `gt_score` | `[707]` | 数据集自带的聚合重要性分（训练目标；参考口径 rank 指标的 GT） |
 | `n_frames` | 10597 | 原始帧空间长度 |
 
-**没有原始帧**：eccv16 谱系惯例——因此也是全部已发表对比数字——建立在这些预提取特征之上。需要原始视频的方法目前不在此基底范围内。
+`Video` 本身**不含原始像素**：eccv16 谱系惯例——因此也是全部已发表对比数字——建立在这些预提取特征之上。需要像素的方法可走可选的原始视频旁路，见[原始视频](#原始视频可选)。
 
 ### 模型契约
 
@@ -137,6 +137,27 @@ vsumm report runs/               # 扫描 manifest → markdown 对比表
 ```
 
 数据落在 `$VSUM_CACHE_DIR`（默认 `~/.cache/vsumbench`），经 checksum 校验；`--data-root` 可指向本地已有副本离线使用。
+
+### 原始视频（可选）
+
+基于特征的评测不需要 h5 之外的任何东西。需要像素的方法可以下载官方视频；随包映射把每个 h5 `video_id` 钉死到官方归档中的精确成员，因此本地文件绝不可能因目录顺序而错位：
+
+```bash
+vsumm download-media tvsum --video-id video_1   # -> <media-root>/tvsum/video_1.mp4
+vsumm media-path tvsum video_1                  # 解析；缺失/损坏时明确报错
+```
+
+`download-media` 会下载**整个**官方归档（TVSum 约 0.67 GB，SumMe 约 2.4 GB），校验归档与成员 checksum，只解出请求的视频。`--video-id` 可重复；省略表示安装全部映射视频。`--keep-archive` 把校验过的归档缓存在 `<media-root>/.archives` 供后续复用。media root 的优先级为 `--media-root` > `$VSUM_MEDIA_DIR` > `$VSUM_CACHE_DIR/media` > `~/.cache/vsumbench/media`。Python 侧同样可用：
+
+```python
+from vsumbench.data.media import download_media, media_index, media_path
+
+download_media("tvsum", video_ids=["video_1"])  # 归档 → <media-root>/tvsum/video_1.mp4
+path = media_path("tvsum", "video_1", verify_sha256=True)
+paths = media_index("tvsum")  # 已安装视频的 {video_id: path}
+```
+
+映射（`video_id` → 原始文件名 / YouTube id / 大小 / sha256）随仓库分发，视频本身永不入库。文件缺失时错误会给出预期路径、归档成员与安装命令——**绝不**回退到别的文件或目录排序。`Video` 未变，上面的基于特征评测路径无需任何视频即可运行。来源、许可与映射核验见 [docs/design/raw-media.md](docs/design/raw-media.md)。
 
 ### 让数字可比
 

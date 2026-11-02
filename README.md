@@ -53,7 +53,7 @@ A `Video` carries the whole evaluation substrate (TVSum `video_1` shown as a con
 | `gt_score` | `[707]` | the dataset's aggregated importance (training target; reference-protocol rank GT) |
 | `n_frames` | 10597 | length of the original frame space |
 
-There are **no raw frames**: the eccv16 lineage convention — and therefore every published comparison number — is built on these precomputed features. Methods that need raw video are outside this substrate for now.
+`Video` itself carries **no raw pixels**: the eccv16 lineage convention — and therefore every published comparison number — is built on these precomputed features. Raw videos are an optional side channel for methods that need pixels; see [Raw video](#raw-video-optional).
 
 ### The model contract
 
@@ -135,6 +135,27 @@ vsumm report runs/               # scan manifests → markdown comparison table
 ```
 
 Data lands in `$VSUM_CACHE_DIR` (default `~/.cache/vsumbench`), checksum-verified; `--data-root` points runs at an existing local copy for offline use.
+
+### Raw video (optional)
+
+Feature-based evaluation needs nothing beyond the h5. Methods that do need pixels can fetch the official videos; the shipped mapping pins every h5 `video_id` to an exact archive member, so a local file can never be shifted by directory order:
+
+```bash
+vsumm download-media tvsum --video-id video_1   # -> <media-root>/tvsum/video_1.mp4
+vsumm media-path tvsum video_1                  # resolve; fails loudly if absent/corrupt
+```
+
+`download-media` fetches the **whole** official archive (TVSum ~0.67 GB, SumMe ~2.4 GB), verifies the archive and member checksums, and extracts only the requested videos. `--video-id` is repeatable; omitting it installs every mapped video. `--keep-archive` caches the verified archive under `<media-root>/.archives` for later installs. The media root resolves as `--media-root` > `$VSUM_MEDIA_DIR` > `$VSUM_CACHE_DIR/media` > `~/.cache/vsumbench/media`. The same resolution is available in Python:
+
+```python
+from vsumbench.data.media import download_media, media_index, media_path
+
+download_media("tvsum", video_ids=["video_1"])  # archive → <media-root>/tvsum/video_1.mp4
+path = media_path("tvsum", "video_1", verify_sha256=True)
+paths = media_index("tvsum")  # {video_id: path} for installed videos
+```
+
+The mapping (`video_id` → original filename / YouTube id / size / sha256) is committed; videos never are. A missing file raises an error naming the expected path, archive member and install command — it never falls back to another file or to folder sort order. `Video` is unchanged, so the feature-based evaluation path above works without any media. Sources, licensing and the mapping validation are in [docs/design/raw-media.md](docs/design/raw-media.md).
 
 ### Making your numbers comparable
 
