@@ -384,6 +384,7 @@ def test_cli_download_media_and_media_path(
     captured = capsys.readouterr()
     assert code == 0, captured.err
     assert "media root:" in captured.out
+    assert "docs/design/raw-media.md" in captured.out
     assert f"ready: {tmp_path / FAKE_DATASET / 'video_1.mp4'}" in captured.out
 
     code = cli.main(["media-path", FAKE_DATASET, "video_1", "--media-root", str(tmp_path)])

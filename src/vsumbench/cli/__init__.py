@@ -26,6 +26,11 @@ from vsumbench.reporting.table import collect_manifests, runs_table
 
 __all__ = ["main"]
 
+_DATA_NOTICE = (
+    "notice: vsumbench ships code, not data; downloaded datasets remain subject to "
+    "their source terms - see docs/design/raw-media.md"
+)
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -227,6 +232,7 @@ def _comma_floats(text: str) -> list[float]:
 def _run_download(args: argparse.Namespace) -> int:
     root = None if args.root is None else Path(args.root)
     print(f"cache root: {download_mod.cache_dir(root)}")
+    print(_DATA_NOTICE)
     try:
         paths = download_mod.download_dataset(args.dataset, root=root, report=print)
     except download_mod.DownloadError as exc:
@@ -243,6 +249,7 @@ def _run_download(args: argparse.Namespace) -> int:
 def _run_download_media(args: argparse.Namespace) -> int:
     root = None if args.media_root is None else Path(args.media_root)
     print(f"media root: {media_mod.media_dir(root)}")
+    print(_DATA_NOTICE)
     try:
         paths = media_mod.download_media(
             args.dataset,

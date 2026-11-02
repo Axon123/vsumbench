@@ -157,6 +157,10 @@ paths = media_index("tvsum")  # {video_id: path} for installed videos
 
 The mapping (`video_id` → original filename / YouTube id / size / sha256) is committed; videos never are. A missing file raises an error naming the expected path, archive member and install command — it never falls back to another file or to folder sort order. `Video` is unchanged, so the feature-based evaluation path above works without any media. Sources, licensing and the mapping validation are in [docs/design/raw-media.md](docs/design/raw-media.md).
 
+### Data / licensing notice
+
+`vsumbench` distributes **code only** — dataset loaders, checksums and the `video_id` mapping. It never bundles or redistributes the TVSum/SumMe videos, their annotations, or the eccv16 h5 files. `vsumm download` and `vsumm download-media` fetch data from the official sources listed in [docs/design/raw-media.md](docs/design/raw-media.md) onto your machine. You are responsible for complying with each dataset's terms: TVSum, SumMe and the Yahoo! Webscope agreement may restrict use to academic, non-commercial research and prohibit redistribution. The project authors grant no license to the data itself.
+
 ### Making your numbers comparable
 
 - `gt_aggregation` defaults to `max` (the eccv16 original-paper convention). The KaiyangZhou/VASNet-lineage code hard-codes `avg` for TVSum — switch with `--gt-aggregation mean` when comparing against those tables.
@@ -189,4 +193,4 @@ New models join through the registry — see [CONTRIBUTING.md](CONTRIBUTING.md) 
 
 ## License
 
-[MIT](LICENSE)
+Code is released under the [MIT license](LICENSE). This license does not cover the datasets — see the [Data / licensing notice](#data--licensing-notice).

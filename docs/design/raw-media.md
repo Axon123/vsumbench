@@ -14,7 +14,7 @@
 
 ## 2. 官方来源
 
-仓库只提交**映射表与 checksum**（`src/vsumbench/data/media_sources.py`），视频由使用者从官方发布包下载。
+仓库只提交**映射表与 checksum**（`src/vsumbench/data/media_sources.py`），视频由使用者从官方发布包下载。PyPI 发布的 wheel/sdist 同样只含代码、映射与 checksum，不包含任何视频、标注或 eccv16 h5 文件。
 
 | 数据集 | 官方页面 | 官方归档 | 大小 | 归档 sha256 |
 |---|---|---|---|---|

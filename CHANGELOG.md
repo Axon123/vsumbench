@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Data / licensing notice.** The bilingual READMEs now state that vsumbench ships code only (loaders, checksums, `video_id` mapping) and never bundles or redistributes TVSum/SumMe videos, annotations or the eccv16 h5; `vsumm download` / `download-media` fetch from the documented official sources into the user's machine, and users are responsible for the datasets' terms (academic/non-commercial restrictions may apply). The CLI prints a one-line pointer to `docs/design/raw-media.md` before downloading, and the PyPI long description (`readme = "README.md"`) carries the notice.
+
 ### Added
 
 - **Data layer.** `vsumm download` with multi-mirror sources, sha256 verification, a cache directory (`VSUM_CACHE_DIR`, overridable for offline use); TVSum and SumMe adapters over the canonical eccv16 h5 files, carrying both frame spaces raw (step-space `features` + `picks`, frame-space per-user annotations) plus the dataset's aggregated `gt_score`; canonical 5-fold splits transcribed verbatim from the lineage and seed-controlled random k-fold splits.

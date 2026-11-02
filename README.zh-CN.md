@@ -159,6 +159,10 @@ paths = media_index("tvsum")  # 已安装视频的 {video_id: path}
 
 映射（`video_id` → 原始文件名 / YouTube id / 大小 / sha256）随仓库分发，视频本身永不入库。文件缺失时错误会给出预期路径、归档成员与安装命令——**绝不**回退到别的文件或目录排序。`Video` 未变，上面的基于特征评测路径无需任何视频即可运行。来源、许可与映射核验见 [docs/design/raw-media.md](docs/design/raw-media.md)。
 
+### 数据 / 许可声明
+
+`vsumbench` **只分发代码**——数据 loader、checksum 与 `video_id` 映射；从不打包或再分发 TVSum/SumMe 的视频、标注或 eccv16 h5 文件。`vsumm download` 与 `vsumm download-media` 只从 [docs/design/raw-media.md](docs/design/raw-media.md) 列出的官方来源把数据下载到你的本机。使用者须自行遵守各数据集的条款：TVSum、SumMe 与 Yahoo! Webscope 协议可能将使用限定为学术、非商业研究并禁止再分发。项目作者不授予数据本身的任何许可。
+
 ### 让数字可比
 
 - `gt_aggregation` 默认 `max`（eccv16 原论文口径）。KaiyangZhou/VASNet 谱系代码对 TVSum 硬编码 `avg`——与那批论文的表对比时用 `--gt-aggregation mean` 切换。
@@ -191,4 +195,4 @@ paths = media_index("tvsum")  # 已安装视频的 {video_id: path}
 
 ## 许可证
 
-[MIT](LICENSE)
+代码以 [MIT](LICENSE) 发布；该许可不覆盖数据集——见[数据 / 许可声明](#数据--许可声明)。
